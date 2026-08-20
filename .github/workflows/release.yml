@@ -1,0 +1,171 @@
+name: Build & release binaries
+
+# Builds a double-click desktop executable for Windows, macOS (both Intel and
+# Apple Silicon) and Linux, then publishes them to a GitHub Release.
+#
+# Each binary is a PyInstaller onefile build of packaging/launcher.py, which
+# starts the local dashboard exactly the way `guardiantus dashboard` does.
+# watchdog and yara-python are installed best-effort: if a platform lacks a
+# prebuilt wheel, the build still succeeds and the resulting binary falls
+# back to the polling watcher / built-in YARA interpreter, same as a normal
+# install without those extras.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0). Defaults to v<package version>."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+            asset_ext: zip
+            binary: guardiantus.exe
+          - os: macos-13
+            name: macos-x64
+            asset_ext: zip
+            binary: guardiantus
+          - os: macos-14
+            name: macos-arm64
+            asset_ext: zip
+            binary: guardiantus
+          - os: ubuntu-latest
+            name: linux-x64
+            asset_ext: tar.gz
+            binary: guardiantus
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Install optional accelerators (best effort)
+        shell: bash
+        run: pip install watchdog yara-python || echo "optional accelerators unavailable on this runner; continuing without them"
+
+      - name: Build
+        run: pyinstaller packaging/guardiantus.spec --noconfirm --clean
+
+      - name: Report what got bundled
+        shell: bash
+        run: |
+          python -c "
+          import subprocess, sys
+          for pkg in ('watchdog', 'yara'):
+              try:
+                  __import__(pkg)
+                  print(f'{pkg}: bundled')
+              except ImportError:
+                  print(f'{pkg}: not available on this runner (fallback will be used)')
+          "
+
+      - name: Package (zip)
+        if: matrix.asset_ext == 'zip'
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "../guardiantus-av-${{ matrix.name }}.zip" "${{ matrix.binary }}"
+          else
+            zip "../guardiantus-av-${{ matrix.name }}.zip" "${{ matrix.binary }}"
+          fi
+
+      - name: Package (tar.gz)
+        if: matrix.asset_ext == 'tar.gz'
+        shell: bash
+        run: |
+          chmod +x "dist/${{ matrix.binary }}"
+          tar -C dist -czf "guardiantus-av-${{ matrix.name }}.tar.gz" "${{ matrix.binary }}"
+
+      - name: Checksum
+        shell: bash
+        run: |
+          FILE="guardiantus-av-${{ matrix.name }}.${{ matrix.asset_ext }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            certutil -hashfile "$FILE" SHA256 | sed -n '2p' | tr -d '\r' | awk -v f="$FILE" '{print $0"  "f}' > "$FILE.sha256"
+          else
+            shasum -a 256 "$FILE" > "$FILE.sha256"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guardiantus-av-${{ matrix.name }}
+          path: |
+            guardiantus-av-${{ matrix.name }}.${{ matrix.asset_ext }}
+            guardiantus-av-${{ matrix.name }}.${{ matrix.asset_ext }}.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version and tag
+        id: version
+        run: |
+          VERSION=$(python3 -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('guardiantus/__init__.py').read()).group(1))")
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v${VERSION}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Combine checksums
+        run: cat artifacts/*.sha256 > artifacts/SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Guardiantus AV ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+            artifacts/SHA256SUMS.txt
+          body: |
+            Desktop builds of Guardiantus AV ${{ steps.version.outputs.version }}.
+
+            These binaries are **not code-signed** — Windows SmartScreen and
+            macOS Gatekeeper will both warn on first launch. See the
+            [download page](https://github.com/${{ github.repository }}#readme)
+            for how to proceed, or install from source with `pip` to skip the
+            warning entirely.
+
+            Verify a download against `SHA256SUMS.txt` with:
+
+            ```
+            sha256sum -c SHA256SUMS.txt
+            ```

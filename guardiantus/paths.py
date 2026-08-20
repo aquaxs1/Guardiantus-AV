@@ -12,7 +12,26 @@ import os
 import sys
 from pathlib import Path
 
-PACKAGE_ROOT = Path(__file__).resolve().parent
+
+def _package_root() -> Path:
+    """Where ``guardiantus``'s own files live.
+
+    Under a normal install this is simply the directory containing this file.
+    Under a PyInstaller build, the package is not present on disk as loose
+    files at all -- modules are loaded from an embedded archive, so
+    ``__file__`` resolves to a path that does not exist. Data files (the UI
+    and the bundled signatures/rules) are instead unpacked next to the
+    executable, so bundled resources must be found there.
+    """
+    if getattr(sys, "frozen", False):
+        base = getattr(sys, "_MEIPASS", None)
+        if base is None:
+            base = Path(sys.executable).resolve().parent
+        return Path(base) / "guardiantus"
+    return Path(__file__).resolve().parent
+
+
+PACKAGE_ROOT = _package_root()
 PROJECT_ROOT = PACKAGE_ROOT.parent
 
 #: Signature sets and YARA rules shipped with the application.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import time
 import urllib.error
 import urllib.request
@@ -429,3 +430,33 @@ def test_cli_rejects_unknown_path(capsys):
     from guardiantus.cli import main
 
     assert main(["check", "/definitely/not/here.bin"]) == 2
+
+
+# -------------------------------------------------------- packaging/paths
+
+
+def test_package_root_normal_install():
+    from guardiantus import paths
+
+    assert pathlib.Path(paths.__file__).resolve().parent == paths.PACKAGE_ROOT
+
+
+def test_package_root_under_pyinstaller(monkeypatch, tmp_path):
+    """PyInstaller loads modules from an archive, so __file__ is unusable;
+    bundled data must instead be found next to the frozen executable."""
+    import importlib
+    import sys
+
+    from guardiantus import paths
+
+    fake_exe = tmp_path / "guardiantus.exe"
+    fake_exe.touch()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.setattr(sys, "executable", str(fake_exe))
+    try:
+        importlib.reload(paths)
+        assert tmp_path / "guardiantus" == paths.PACKAGE_ROOT
+        assert tmp_path / "guardiantus" / "data" / "signatures" == paths.BUNDLED_SIGNATURES
+    finally:
+        importlib.reload(paths)  # restore the un-frozen state for later tests

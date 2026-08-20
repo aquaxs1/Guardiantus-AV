@@ -38,6 +38,8 @@ realtime = ["watchdog>=3.0"]
 yara = ["yara-python>=4.3"]
 full = ["watchdog>=3.0", "yara-python>=4.3"]
 dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.4"]
+# Building the standalone desktop executable (see packaging/).
+build = ["pyinstaller>=6.0", "pillow>=10.0", "icnsutil>=1.1"]
 
 [project.scripts]
 guardiantus = "guardiantus.cli:main"

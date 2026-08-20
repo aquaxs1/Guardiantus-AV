@@ -600,9 +600,9 @@ details.faq p { padding: 0 2px 18px; color: var(--text-muted); font-size: 14px; 
 
 /* ------------------------------------------------------------ build cards */
 
-.build-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-@media (max-width: 900px) { .build-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .build-grid { grid-template-columns: minmax(0, 1fr); } }
+.build-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 760px) { .build-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .build-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .build-card {
   padding: 18px;

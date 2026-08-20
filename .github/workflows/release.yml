@@ -35,10 +35,6 @@ jobs:
             name: windows-x64
             asset_ext: zip
             binary: guardiantus.exe
-          - os: macos-13
-            name: macos-x64
-            asset_ext: zip
-            binary: guardiantus
           - os: macos-14
             name: macos-arm64
             asset_ext: zip
@@ -46,6 +42,10 @@ jobs:
           - os: ubuntu-latest
             name: linux-x64
             asset_ext: tar.gz
+          # Intel Mac (macos-13) is deliberately not built here: GitHub has
+          # been retiring that hosted-runner image, and a dispatched run
+          # queued indefinitely rather than picking one up. Intel Mac users
+          # get full coverage through `pip install` instead (see download.html).
             binary: guardiantus
 
     steps:

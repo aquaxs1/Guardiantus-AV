@@ -10,20 +10,25 @@
   const BUILDS = {
     "windows-x64": { label: "Windows", sub: "64-bit, Windows 10 or newer", file: "guardiantus-av-windows-x64.zip" },
     "macos-arm64": { label: "macOS", sub: "Apple Silicon (M1 and newer)", file: "guardiantus-av-macos-arm64.zip" },
-    "macos-x64": { label: "macOS", sub: "Intel", file: "guardiantus-av-macos-x64.zip" },
     "linux-x64": { label: "Linux", sub: "64-bit, most distributions", file: "guardiantus-av-linux-x64.tar.gz" },
   };
 
+  // Intel Macs have no prebuilt binary (see download.html's note under the
+  // build grid) -- detected separately so it can point at pip install
+  // instead of a build that doesn't exist.
   function detect() {
     const ua = navigator.userAgent || "";
     const platform = navigator.platform || "";
     if (/Win/.test(platform) || /Windows/.test(ua)) return "windows-x64";
     if (/Mac/.test(platform) || /Macintosh/.test(ua)) {
-      // Browsers do not expose a reliable Apple-Silicon-vs-Intel signal, even
-      // on an Apple Silicon Mac running under Rosetta the UA still reports
-      // "Intel". Default to Apple Silicon, the current shipping hardware;
-      // the page lists both explicitly for anyone on an older Intel Mac.
-      return "macos-arm64";
+      // Browsers do not expose a reliable Apple-Silicon-vs-Intel signal --
+      // even on an Apple Silicon Mac running under Rosetta the UA still
+      // reports "Intel". maxTouchPoints > 0 on a "MacIntel" platform is the
+      // documented Apple Silicon Safari quirk; other browsers fall back to
+      // assuming current hardware, which is right far more often than not.
+      const looksIntel = platform === "MacIntel" && navigator.maxTouchPoints === 0
+        && !/Chrome|Firefox|Edg/.test(ua);
+      return looksIntel ? "macos-intel" : "macos-arm64";
     }
     if (/Linux/.test(platform) || /Linux/.test(ua)) return "linux-x64";
     return null;
@@ -55,8 +60,17 @@
     const slot = document.getElementById("primary-download");
     if (!slot) return;
     const key = detect();
-    const build = key ? BUILDS[key] : null;
 
+    if (key === "macos-intel") {
+      slot.replaceChildren(
+        el("a", { class: "btn btn--primary btn--lg", href: "#install" },
+          icon("download"), "Install with pip"),
+        el("span", { class: "field__hint", text: "No prebuilt binary for Intel Macs — this works identically" }),
+      );
+      return;
+    }
+
+    const build = key ? BUILDS[key] : null;
     if (!build) {
       slot.replaceChildren(
         el("a", { class: "btn btn--primary btn--lg", href: `${RELEASES.replace("/latest/download", "/latest")}` },

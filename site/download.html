@@ -12,6 +12,7 @@
 <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/css/site.css">
 <script src="assets/js/site.js" defer></script>
+<script src="assets/js/download.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -48,6 +49,10 @@
     <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.8-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.3 9.3 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.8 1 1.7 1 2.8 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10.2 10.2 0 0 0 22 12.2C22 6.6 17.5 2 12 2z"/></symbol>
     <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12" rx="1.6"/><path d="M8.5 20.5h7"/><path d="M12 16.5v4"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.5" width="14" height="9.5" rx="1.3"/><path d="M2.5 18.5h19l-1.5-3h-16z"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="6.5" rx="1.3"/><rect x="4" y="13.5" width="16" height="6.5" rx="1.3"/><path d="M7.5 7.3h.01"/><path d="M7.5 16.8h.01"/></symbol>
+    <symbol id="i-shield-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/><rect x="9.3" y="11.5" width="5.4" height="4.2" rx="0.9"/><path d="M10.4 11.5V10a1.6 1.6 0 0 1 3.2 0v1.5"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="M5.3 5.3l1.4 1.4"/><path d="M17.3 17.3l1.4 1.4"/><path d="M18.7 5.3l-1.4 1.4"/><path d="M6.7 17.3l-1.4 1.4"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2z"/></symbol>
   </defs>
@@ -86,22 +91,104 @@
     <h1>Get Guardiantus AV.</h1>
     <p class="lede">
       Version 1.0.0 · MIT licensed · Windows, macOS and Linux.
-      Needs Python 3.9 or newer and nothing else.
     </p>
-    <div class="row mt-6">
-      <a class="btn btn--primary btn--lg" href="https://github.com/aquaxs1/Guardiantus-AV/archive/refs/heads/main.zip" rel="noopener">
-        <svg><use href="#i-download"></use></svg>Download source (.zip)
+    <div class="mt-6" id="primary-download">
+      <a class="btn btn--primary btn--lg" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest">
+        <svg><use href="#i-download"></use></svg>See all downloads
       </a>
-      <a class="btn btn--lg" href="https://github.com/aquaxs1/Guardiantus-AV" rel="noopener"><svg><use href="#i-github"></use></svg>View on GitHub</a>
     </div>
+    <p class="field__hint mt-2">Detects your platform automatically — every build below works too.</p>
   </div>
 </section>
 
-<section class="tight" id="install">
+<section class="tight" id="desktop">
   <div class="wrap">
     <div class="sec-head">
-      <h2>Install</h2>
-      <p>Pick one. All three give you the same <code>guardiantus</code> command.</p>
+      <h2>Desktop app</h2>
+      <p>Double-click to run. Starts the dashboard and opens your browser — nothing else to configure.</p>
+    </div>
+
+    <div class="build-grid">
+      <article class="build-card" data-build="windows-x64">
+        <span class="build-card__icon"><svg><use href="#i-monitor"></use></svg></span>
+        <div>
+          <div class="build-card__os">Windows</div>
+          <div class="build-card__sub">64-bit, Windows 10+</div>
+        </div>
+        <a class="btn btn--block" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/guardiantus-av-windows-x64.zip">
+          <svg><use href="#i-download"></use></svg>Download .zip
+        </a>
+        <div class="build-card__meta"><span>guardiantus.exe</span><span>unsigned</span></div>
+      </article>
+
+      <article class="build-card" data-build="macos-arm64">
+        <span class="build-card__icon"><svg><use href="#i-laptop"></use></svg></span>
+        <div>
+          <div class="build-card__os">macOS</div>
+          <div class="build-card__sub">Apple Silicon (M1+)</div>
+        </div>
+        <a class="btn btn--block" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/guardiantus-av-macos-arm64.zip">
+          <svg><use href="#i-download"></use></svg>Download .zip
+        </a>
+        <div class="build-card__meta"><span>guardiantus</span><span>unsigned</span></div>
+      </article>
+
+      <article class="build-card" data-build="macos-x64">
+        <span class="build-card__icon"><svg><use href="#i-laptop"></use></svg></span>
+        <div>
+          <div class="build-card__os">macOS</div>
+          <div class="build-card__sub">Intel</div>
+        </div>
+        <a class="btn btn--block" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/guardiantus-av-macos-x64.zip">
+          <svg><use href="#i-download"></use></svg>Download .zip
+        </a>
+        <div class="build-card__meta"><span>guardiantus</span><span>unsigned</span></div>
+      </article>
+
+      <article class="build-card" data-build="linux-x64">
+        <span class="build-card__icon"><svg><use href="#i-server"></use></svg></span>
+        <div>
+          <div class="build-card__os">Linux</div>
+          <div class="build-card__sub">64-bit, most distributions</div>
+        </div>
+        <a class="btn btn--block" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/guardiantus-av-linux-x64.tar.gz">
+          <svg><use href="#i-download"></use></svg>Download .tar.gz
+        </a>
+        <div class="build-card__meta"><span>guardiantus</span><span>unsigned</span></div>
+      </article>
+    </div>
+
+    <div class="callout callout--warn mt-6">
+      <svg><use href="#i-shield-lock"></use></svg>
+      <p><strong>These builds are not code-signed.</strong> A paid signing certificate costs
+      money the project doesn't spend on marketing either. Windows SmartScreen and macOS
+      Gatekeeper will both warn on first launch — expected, not a sign anything is wrong:</p>
+    </div>
+
+    <div class="grid grid--2 gap-lg mt-4">
+      <article class="card feature">
+        <h3>Windows: "Windows protected your PC"</h3>
+        <p>Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+      </article>
+      <article class="card feature">
+        <h3>macOS: "cannot be opened"</h3>
+        <p>Right-click the app → <strong>Open</strong> → <strong>Open</strong> again in the dialog.
+        Or clear the quarantine flag yourself: <code>xattr -d com.apple.quarantine guardiantus</code></p>
+      </article>
+    </div>
+
+    <p class="field__hint mt-4">
+      Don't want that warning at all? <code>pip install</code> below runs the same code with
+      no signing involved, because there's no separate binary to distrust.
+    </p>
+  </div>
+</section>
+
+<section class="tight sunken" id="install">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Install with pip</h2>
+      <p>The primary install path. Same engine, plus the CLI and scriptability.</p>
     </div>
 
     <div class="grid grid--3">
@@ -128,13 +215,17 @@ cd Guardiantus-AV
 pip install -e ".[full]"</pre></div>
       </article>
     </div>
+  </div>
+</section>
 
-    <div class="callout mt-6">
-      <svg><use href="#i-info"></use></svg>
-      <p><strong>No installer binaries yet.</strong> There is no signed <code>.exe</code>,
-      <code>.dmg</code> or <code>.deb</code> — the project ships as source you install with
-      pip. That also means you can read every line before you run it.</p>
+<section class="tight">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Verify a download</h2>
+      <p>Every release includes a checksum file signed by nothing but arithmetic — check it yourself.</p>
     </div>
+    <div class="code"><pre>curl -LO https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt --ignore-missing</pre></div>
   </div>
 </section>
 
@@ -233,7 +324,8 @@ python -m guardiantus dashboard</pre></div>
         <h4>Get started</h4>
         <ul>
           <li><a href="download.html">Download</a></li>
-          <li><a href="download.html#install">Install</a></li>
+          <li><a href="download.html#desktop">Desktop app</a></li>
+          <li><a href="download.html#install">Install with pip</a></li>
           <li><a href="tutorial.html">Tutorial</a></li>
           <li><a href="tutorial.html#verify">Verify it works</a></li>
           <li><a href="demo.html">Threat Lab</a></li>

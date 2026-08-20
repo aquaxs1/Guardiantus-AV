@@ -597,3 +597,29 @@ details.faq p { padding: 0 2px 18px; color: var(--text-muted); font-size: 14px; 
 @media (max-width: 900px) {
   .btn.nav-toggle { display: inline-flex; }
 }
+
+/* ------------------------------------------------------------ build cards */
+
+.build-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .build-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .build-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.build-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.build-card--match { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.build-card__icon { width: 30px; height: 30px; color: var(--text); }
+.build-card__icon svg { width: 100%; height: 100%; }
+.build-card__os { font-weight: 650; }
+.build-card__sub { font-size: 12.5px; color: var(--text-subtle); margin-top: -4px; }
+.build-card__meta { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-subtle); }
+
+#primary-download { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+#primary-download .field__hint { padding-left: 2px; }

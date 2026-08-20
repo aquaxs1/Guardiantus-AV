@@ -30,7 +30,7 @@ security headers, including a CSP with no inline script or style.
 |---|---|
 | `index.html` | Landing page — value, features, how it works, FAQ |
 | `features.html` | Every feature and tool, grouped by subsystem |
-| `download.html` | Install options and requirements |
+| `download.html` | Desktop app downloads plus pip install options |
 | `tutorial.html` | Six-step setup plus the self-test files |
 | `demo.html` | Threat Lab — the interactive minigame |
 | `terms.html` | Terms of Use |
@@ -44,6 +44,17 @@ security headers, including a CSP with no inline script or style.
 | `assets/js/engine.js` | Browser port of the four detection layers |
 | `assets/js/samples.js` | Threat Lab sample files |
 | `assets/js/demo.js` | Threat Lab game logic |
+| `assets/js/download.js` | Platform detection for the download page's primary button |
+
+## Desktop app downloads
+
+`download.html` links directly to `github.com/aquaxs1/Guardiantus-AV/releases/latest/download/<asset>`,
+which always resolves to the newest published release — no version bump needed
+on this site when a new build ships. The binaries themselves come from
+`.github/workflows/release.yml` (see `packaging/README.md` in the repo root),
+built on real Windows, Intel Mac, Apple Silicon Mac and Linux runners. They are
+not code-signed, which the page explains along with how to get past the
+resulting OS warnings.
 
 ## The Threat Lab
 

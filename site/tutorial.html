@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutorial — Guardiantus AV</title>
+<meta name="description" content="Install Guardiantus AV, run your first scan, turn on real-time protection and verify every detection layer works.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="Tutorial — Guardiantus AV">
+<meta property="og:description" content="Install Guardiantus AV, run your first scan, turn on real-time protection and verify every detection layer works.">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-logo" viewBox="0 0 200 200">
+      <g fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M100 20 C122 34 148 42 174 44 L174 104 C174 141 143 170 100 184 C57 170 26 141 26 104 L26 44 C52 42 78 34 100 20 Z"/>
+        <path d="M118 78 A30 30 0 1 0 118 132 L118 108 L100 108" stroke-width="6"/>
+        <path d="M96 142 L119 76 L142 142" stroke-width="6"/>
+        <path d="M105 118 L133 118" stroke-width="6"/>
+      </g>
+      <path d="M124 106 C146 106 163 97 176 80 C171 105 152 121 128 124 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/></symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/><path d="M8.8 12.1l2.3 2.3 4.2-4.4"/></symbol>
+    <symbol id="i-shield-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/><path d="M12 8.6v3.9"/><path d="M12 15.4h.01"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8"/><path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8"/><path d="M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16"/><path d="M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11"/><path d="M9 12h11"/><path d="M9 17.5h11"/><path d="M4.5 6.5h.01"/><path d="M4.5 12h.01"/><path d="M4.5 17.5h.01"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5"/><path d="M4 4.5v4h4"/><path d="M4 12.5a8 8 0 0 0 13.7 5.2L20 15.5"/><path d="M20 19.5v-4h-4"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H7a1.5 1.5 0 0 0-1.5 1.5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z"/><path d="M13.5 3.5v5h5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v4.6"/><path d="M12 16h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 16.2v-4.6"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.8l12 7.2-12 7.2z"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l4 4.5-4 4.5"/><path d="M12 16.5h7"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3L5.5 13.5H11l-.5 7.5 8-10.5H13z"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8.2v7.6a1.5 1.5 0 0 1-.8 1.3l-6.5 3.5a1.5 1.5 0 0 1-1.4 0l-6.5-3.5a1.5 1.5 0 0 1-.8-1.3V8.2a1.5 1.5 0 0 1 .8-1.3l6.5-3.5a1.5 1.5 0 0 1 1.4 0l6.5 3.5a1.5 1.5 0 0 1 .8 1.3z"/><path d="M4.3 7.6L12 12l7.7-4.4"/><path d="M12 20.5V12"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="1.6"/><path d="M9.8 3.5v3"/><path d="M14.2 3.5v3"/><path d="M9.8 17.5v3"/><path d="M14.2 17.5v3"/><path d="M20.5 9.8h-3"/><path d="M20.5 14.2h-3"/><path d="M6.5 9.8h-3"/><path d="M6.5 14.2h-3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.8-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.3 9.3 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.8 1 1.7 1 2.8 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10.2 10.2 0 0 0 22 12.2C22 6.6 17.5 2 12 2z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="M5.3 5.3l1.4 1.4"/><path d="M17.3 17.3l1.4 1.4"/><path d="M18.7 5.3l-1.4 1.4"/><path d="M6.7 17.3l-1.4 1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2z"/></symbol>
+  </defs>
+</svg>
+<header class="site-head">
+  <div class="wrap site-head__inner">
+    <a class="brand" href="index.html">
+      <span class="brand__mark"><svg><use href="#i-logo"></use></svg></span>
+      <span class="brand__name">Guardiantus <span>AV</span></span>
+    </a>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="features.html">Features</a>
+      <a href="demo.html">Threat Lab</a>
+      <a href="tutorial.html">Tutorial</a>
+      <a href="download.html">Download</a>
+      <a href="https://github.com/aquaxs1/Guardiantus-AV" rel="noopener">Source</a>
+    </nav>
+    <div class="head-actions">
+      <button class="btn btn--ghost btn--icon" data-theme-toggle type="button" aria-label="Switch theme">
+        <svg><use href="#i-moon"></use></svg>
+      </button>
+      <a class="btn btn--primary btn--sm btn--cta" href="download.html">Download</a>
+      <button class="btn btn--ghost btn--icon nav-toggle" data-nav-toggle type="button"
+              aria-expanded="false" aria-controls="site-nav" aria-label="Menu">
+        <svg><use href="#i-menu"></use></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="tight">
+  <div class="wrap">
+    <span class="eyebrow">Tutorial</span>
+    <h1>From install to protected.</h1>
+    <p class="lede">
+      Six steps, about two minutes. Every command works the same on Windows, macOS and Linux.
+    </p>
+  </div>
+</section>
+
+<section class="tight">
+  <div class="wrap narrow--md">
+    <div class="steps">
+
+      <div class="step">
+        <div class="step__n"></div>
+        <div>
+          <h3>Install</h3>
+          <p>Extras are optional but recommended.</p>
+          <div class="code"><pre>pip install "guardiantus-av[full] @ git+https://github.com/aquaxs1/Guardiantus-AV.git"</pre></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step__n"></div>
+        <div>
+          <h3>Check the status</h3>
+          <p>Confirms the engine loaded and tells you what still needs doing.</p>
+          <div class="code"><pre>guardiantus status</pre></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step__n"></div>
+        <div>
+          <h3>Run your first scan</h3>
+          <p>Quick scan covers Downloads, Desktop, Documents, temp and autostart.</p>
+          <div class="code"><pre>guardiantus quick</pre></div>
+          <p class="mt-1">Add <code>--no-quarantine</code> to only report, or scan a specific folder:</p>
+          <div class="code"><pre>guardiantus scan ~/Downloads</pre></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step__n"></div>
+        <div>
+          <h3>Turn on real-time protection</h3>
+          <p>New and changed files get checked the moment they land.</p>
+          <div class="code"><pre>guardiantus protect start</pre></div>
+          <p class="mt-1">Choose which folders to watch:</p>
+          <div class="code"><pre>guardiantus config set realtime.watch_paths '["/home/you/Downloads"]'</pre></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step__n"></div>
+        <div>
+          <h3>Open the dashboard</h3>
+          <p>Starts on <code>127.0.0.1:8787</code> and opens your browser with a session token.</p>
+          <div class="code"><pre>guardiantus dashboard</pre></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step__n"></div>
+        <div>
+          <h3>Patch your software</h3>
+          <p>Lists outdated programs across every package manager you have.</p>
+          <div class="code"><pre>guardiantus update programs</pre></div>
+          <p class="mt-1">Apply one of them:</p>
+          <div class="code"><pre>guardiantus update programs --apply apt:firefox</pre></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="tight sunken" id="verify">
+  <div class="wrap narrow--md">
+    <div class="sec-head">
+      <h2>Verify it actually works</h2>
+      <p>Two harmless self-test files. Neither is malware — they exist so you can prove each layer is live.</p>
+    </div>
+
+    <div class="grid grid--2">
+      <article class="card feature">
+        <h3>Hash layer</h3>
+        <div class="code mt-2"><pre>printf 'GUARDIANTUS-AV-SIGNATURE-SELFTEST-FILE-DO-NOT-REMOVE\n' &gt; probe.txt
+guardiantus check probe.txt</pre></div>
+        <p class="mt-2">Expect <code>Guardiantus.SelfTest.HashProbe</code>.</p>
+      </article>
+
+      <article class="card feature">
+        <h3>YARA layer</h3>
+        <div class="code mt-2"><pre>printf 'GUARDIANTUS-AV-YARA-SELFTEST-MARKER\n' &gt; probe2.txt
+guardiantus check probe2.txt</pre></div>
+        <p class="mt-2">Expect <code>Guardiantus.SelfTest.YaraProbe</code>.</p>
+      </article>
+    </div>
+
+    <div class="callout callout--ok mt-5">
+      <svg><use href="#i-check"></use></svg>
+      <p>The industry-standard <strong>EICAR</strong> test file is detected too, as
+      <code>EICAR-Test-File</code>. It is harmless by design and exists purely to test scanners.</p>
+    </div>
+  </div>
+</section>
+
+<section class="tight">
+  <div class="wrap narrow--md">
+    <div class="sec-head">
+      <h2>Everyday commands</h2>
+    </div>
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>guardiantus status</code></td><td>Protection status and next actions</td></tr>
+          <tr><td><code>guardiantus quick</code></td><td>Scan the high-risk locations</td></tr>
+          <tr><td><code>guardiantus full</code></td><td>Scan every mounted drive</td></tr>
+          <tr><td><code>guardiantus scan PATH</code></td><td>Scan a file or folder</td></tr>
+          <tr><td><code>guardiantus check FILE</code></td><td>Instant verdict, no history entry</td></tr>
+          <tr><td><code>guardiantus protect start</code></td><td>Turn on real-time protection</td></tr>
+          <tr><td><code>guardiantus quarantine list</code></td><td>See what is in the vault</td></tr>
+          <tr><td><code>guardiantus quarantine restore ID</code></td><td>Put a file back, byte-for-byte</td></tr>
+          <tr><td><code>guardiantus update signatures</code></td><td>Refresh the signature database</td></tr>
+          <tr><td><code>guardiantus update programs</code></td><td>Find outdated software</td></tr>
+          <tr><td><code>guardiantus schedule list</code></td><td>See scheduled tasks</td></tr>
+          <tr><td><code>guardiantus events</code></td><td>Read the activity log</td></tr>
+          <tr><td><code>guardiantus config show</code></td><td>Print the full configuration</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="tight sunken">
+  <div class="wrap narrow--md">
+    <div class="grid grid--2 gap-lg">
+      <div>
+        <h2>Automate it</h2>
+        <p class="muted mt-2">
+          Exit codes are <code>0</code> clean, <code>1</code> threat found, <code>2</code> error.
+        </p>
+        <div class="code mt-4"><pre>guardiantus --json scan ./upload | jq '.threats[].name'</pre></div>
+        <p class="muted mt-2">Or schedule a nightly scan:</p>
+        <div class="code mt-2"><pre>guardiantus schedule enable quick-scan</pre></div>
+      </div>
+
+      <div>
+        <h2>Tune it</h2>
+        <p class="muted mt-2">
+          Too many false positives? Raise the threshold. Missing things? Lower it.
+        </p>
+        <div class="code mt-4"><pre>guardiantus config set scanning.heuristic_threshold 80
+guardiantus config set scanning.excluded_paths '["/mnt/backups"]'
+guardiantus config path</pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tight">
+  <div class="wrap">
+    <div class="cta-band">
+      <h2>Want to see it decide?</h2>
+      <p>The Threat Lab runs the real detection layers in your browser — and explains every verdict.</p>
+      <div class="row center">
+        <a class="btn btn--primary btn--lg" href="demo.html"><svg><use href="#i-play"></use></svg>Open the Threat Lab</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="index.html">
+          <span class="brand__mark"><svg><use href="#i-logo"></use></svg></span>
+          <span class="brand__name">Guardiantus <span>AV</span></span>
+        </a>
+        <p>Open-source endpoint protection. Multi-layer engine, real-time
+           scanning, quarantine and patch management — no telemetry.</p>
+      </div>
+
+      <div class="foot-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="features.html">All features</a></li>
+          <li><a href="features.html#engine">Detection engine</a></li>
+          <li><a href="features.html#protection">Real-time protection</a></li>
+          <li><a href="features.html#quarantine">Quarantine</a></li>
+          <li><a href="features.html#updates">Updates</a></li>
+          <li><a href="features.html#interfaces">Dashboard &amp; CLI</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4>Get started</h4>
+        <ul>
+          <li><a href="download.html">Download</a></li>
+          <li><a href="download.html#install">Install</a></li>
+          <li><a href="tutorial.html">Tutorial</a></li>
+          <li><a href="tutorial.html#verify">Verify it works</a></li>
+          <li><a href="demo.html">Threat Lab</a></li>
+          <li><a href="index.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV" rel="noopener">Source code</a></li>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV/issues" rel="noopener">Report an issue</a></li>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV/blob/main/LICENSE" rel="noopener">MIT licence</a></li>
+          <li><a href="terms.html">Terms of Use</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot-bar">
+      <p>&copy; <span data-year>2026</span> Guardiantus AV · MIT licensed · Not affiliated with any commercial antivirus vendor.</p>
+      <nav aria-label="Legal and quick links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="demo.html">Threat Lab</a>
+        <a href="tutorial.html">Tutorial</a>
+        <a href="download.html">Download</a>
+        <a href="terms.html">Terms of Use</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

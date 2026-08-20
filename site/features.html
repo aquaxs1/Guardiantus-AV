@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features & tools — Guardiantus AV</title>
+<meta name="description" content="Every Guardiantus AV feature: detection engine, real-time protection, quarantine, update management, dashboard, CLI and scheduler.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="Features & tools — Guardiantus AV">
+<meta property="og:description" content="Every Guardiantus AV feature: detection engine, real-time protection, quarantine, update management, dashboard, CLI and scheduler.">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-logo" viewBox="0 0 200 200">
+      <g fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M100 20 C122 34 148 42 174 44 L174 104 C174 141 143 170 100 184 C57 170 26 141 26 104 L26 44 C52 42 78 34 100 20 Z"/>
+        <path d="M118 78 A30 30 0 1 0 118 132 L118 108 L100 108" stroke-width="6"/>
+        <path d="M96 142 L119 76 L142 142" stroke-width="6"/>
+        <path d="M105 118 L133 118" stroke-width="6"/>
+      </g>
+      <path d="M124 106 C146 106 163 97 176 80 C171 105 152 121 128 124 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/></symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/><path d="M8.8 12.1l2.3 2.3 4.2-4.4"/></symbol>
+    <symbol id="i-shield-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.2c0 4.6-3.1 8.2-7.5 9.8-4.4-1.6-7.5-5.2-7.5-9.8V6z"/><path d="M12 8.6v3.9"/><path d="M12 15.4h.01"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8"/><path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8"/><path d="M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16"/><path d="M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11"/><path d="M9 12h11"/><path d="M9 17.5h11"/><path d="M4.5 6.5h.01"/><path d="M4.5 12h.01"/><path d="M4.5 17.5h.01"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5"/><path d="M4 4.5v4h4"/><path d="M4 12.5a8 8 0 0 0 13.7 5.2L20 15.5"/><path d="M20 19.5v-4h-4"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H7a1.5 1.5 0 0 0-1.5 1.5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z"/><path d="M13.5 3.5v5h5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v4.6"/><path d="M12 16h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 16.2v-4.6"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.8l12 7.2-12 7.2z"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l4 4.5-4 4.5"/><path d="M12 16.5h7"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3L5.5 13.5H11l-.5 7.5 8-10.5H13z"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8.2v7.6a1.5 1.5 0 0 1-.8 1.3l-6.5 3.5a1.5 1.5 0 0 1-1.4 0l-6.5-3.5a1.5 1.5 0 0 1-.8-1.3V8.2a1.5 1.5 0 0 1 .8-1.3l6.5-3.5a1.5 1.5 0 0 1 1.4 0l6.5 3.5a1.5 1.5 0 0 1 .8 1.3z"/><path d="M4.3 7.6L12 12l7.7-4.4"/><path d="M12 20.5V12"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="1.6"/><path d="M9.8 3.5v3"/><path d="M14.2 3.5v3"/><path d="M9.8 17.5v3"/><path d="M14.2 17.5v3"/><path d="M20.5 9.8h-3"/><path d="M20.5 14.2h-3"/><path d="M6.5 9.8h-3"/><path d="M6.5 14.2h-3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.8-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.3 9.3 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.8 1 1.7 1 2.8 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10.2 10.2 0 0 0 22 12.2C22 6.6 17.5 2 12 2z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="M5.3 5.3l1.4 1.4"/><path d="M17.3 17.3l1.4 1.4"/><path d="M18.7 5.3l-1.4 1.4"/><path d="M6.7 17.3l-1.4 1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2z"/></symbol>
+  </defs>
+</svg>
+<header class="site-head">
+  <div class="wrap site-head__inner">
+    <a class="brand" href="index.html">
+      <span class="brand__mark"><svg><use href="#i-logo"></use></svg></span>
+      <span class="brand__name">Guardiantus <span>AV</span></span>
+    </a>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="features.html">Features</a>
+      <a href="demo.html">Threat Lab</a>
+      <a href="tutorial.html">Tutorial</a>
+      <a href="download.html">Download</a>
+      <a href="https://github.com/aquaxs1/Guardiantus-AV" rel="noopener">Source</a>
+    </nav>
+    <div class="head-actions">
+      <button class="btn btn--ghost btn--icon" data-theme-toggle type="button" aria-label="Switch theme">
+        <svg><use href="#i-moon"></use></svg>
+      </button>
+      <a class="btn btn--primary btn--sm btn--cta" href="download.html">Download</a>
+      <button class="btn btn--ghost btn--icon nav-toggle" data-nav-toggle type="button"
+              aria-expanded="false" aria-controls="site-nav" aria-label="Menu">
+        <svg><use href="#i-menu"></use></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="tight">
+  <div class="wrap">
+    <span class="eyebrow">Features &amp; tools</span>
+    <h1>Everything Guardiantus does.</h1>
+    <p class="lede">
+      The complete list, grouped the way the product is built.
+    </p>
+  </div>
+</section>
+
+<section class="tight" id="engine">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Detection engine</h2>
+      <p>Four independent layers. Any one of them can convict a file.</p>
+    </div>
+
+    <div class="grid grid--2">
+      <article class="card feature">
+        <h3>Hash signatures</h3>
+        <p>MD5, SHA-1 and SHA-256 of known-bad files, computed in a single streaming pass.
+        Exact matches, so zero false positives — but only for that exact build.</p>
+      </article>
+      <article class="card feature">
+        <h3>Pattern signatures</h3>
+        <p>A hex or ASCII fragment that must appear in the file, optionally anchored to a
+        magic value. Survives trivial repacking and covers whole families.</p>
+      </article>
+      <article class="card feature">
+        <h3>YARA rules</h3>
+        <p>Native <code>yara-python</code> when installed. Without it, a built-in interpreter
+        handles the bundled rule subset — and skips anything it cannot parse, so a missing
+        dependency can never invent a false positive.</p>
+      </article>
+      <article class="card feature">
+        <h3>Heuristics</h3>
+        <p>Scored rules summed against a threshold you control.</p>
+        <ul>
+          <li>Shannon entropy — packing and encryption</li>
+          <li>PE header, section count, packer markers</li>
+          <li>Process-injection API combinations</li>
+          <li>Script obfuscation, encoded commands, eval chains</li>
+          <li>Ransom-note text and shadow-copy deletion</li>
+          <li>Double extensions like <code>invoice.pdf.exe</code></li>
+          <li>Right-to-left override filenames</li>
+          <li>Executables masquerading as documents or media</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <h3>Archive inspection</h3>
+        <p>ZIP members are scanned in memory, never unpacked to disk. Flags zip bombs by
+        compression ratio and members that escape the extraction directory.</p>
+      </article>
+      <article class="card feature">
+        <h3>Bundled content</h3>
+        <p>13 YARA rules covering reverse shells, ransomware, infostealers, keyloggers,
+        process injection, miners, cron persistence and macro droppers — plus a baseline
+        signature set and two harmless self-test files.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="tight sunken" id="protection">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Protection &amp; scanning</h2>
+      <p>What runs continuously, and what you trigger.</p>
+    </div>
+
+    <div class="grid grid--3">
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-eye"></use></svg></div>
+        <h3>Real-time protection</h3>
+        <ul>
+          <li>Event-driven via watchdog</li>
+          <li>Polling fallback, no dependencies</li>
+          <li>Quarantine or report-only</li>
+          <li>Per-folder watch list</li>
+          <li>Skips half-written downloads</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-scan"></use></svg></div>
+        <h3>Scan types</h3>
+        <ul>
+          <li>Quick — Downloads, Desktop, temp, autostart</li>
+          <li>Full — every mounted drive</li>
+          <li>Custom — any path you name</li>
+          <li>Single file — instant verdict</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-cpu"></use></svg></div>
+        <h3>Scan control</h3>
+        <ul>
+          <li>Live progress and file counts</li>
+          <li>Pause, resume, cancel</li>
+          <li>Parallel with a bounded pool</li>
+          <li>Configurable worker threads</li>
+          <li>Size caps and exclusions</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="tight" id="quarantine">
+  <div class="wrap">
+    <div class="grid grid--2 gap-xl">
+      <div>
+        <h2>Quarantine vault</h2>
+        <p class="muted mt-2">
+          Threats are moved out of reach and stored inert under a per-install key.
+          They cannot execute, and they will not trip other on-access scanners while parked.
+        </p>
+        <div class="callout callout--ok mt-5">
+          <svg><use href="#i-check"></use></svg>
+          <p><strong>Reversible on purpose.</strong> Every entry restores byte-for-byte,
+          because false positives happen and you should not lose a file to one.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th>Action</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td>Quarantine</td><td>File is moved to the vault and obfuscated</td></tr>
+            <tr><td>Restore</td><td>Written back to its original path and permissions</td></tr>
+            <tr><td>Delete</td><td>Overwritten, then removed permanently</td></tr>
+            <tr><td>Empty</td><td>Clears the whole vault</td></tr>
+            <tr><td>Retention</td><td>Entries expire automatically by age and count</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tight sunken" id="updates">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Update management</h2>
+      <p>Unpatched software is the most common way a machine gets compromised.</p>
+    </div>
+
+    <div class="grid grid--2">
+      <article class="card feature">
+        <h3>Program updates</h3>
+        <p>Finds outdated software across every package manager on the machine.</p>
+        <div class="row mt-3">
+          <span class="badge">apt</span><span class="badge">dnf</span><span class="badge">pacman</span>
+          <span class="badge">flatpak</span><span class="badge">snap</span><span class="badge">Homebrew</span>
+          <span class="badge">winget</span><span class="badge">Chocolatey</span><span class="badge">pip</span>
+        </div>
+        <ul>
+          <li>Update one package or all of them</li>
+          <li>Fixed argument vector, never a shell</li>
+          <li>Package names validated before use</li>
+          <li>Installing is never implicit</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <h3>Signature updates</h3>
+        <p>Point it at a JSON manifest and it keeps itself current.</p>
+        <ul>
+          <li>Downloaded to a temporary file first</li>
+          <li>Checked against the manifest digest</li>
+          <li>Parsed and validated before install</li>
+          <li>A bad download cannot corrupt a working database</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="tight" id="interfaces">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Interfaces &amp; automation</h2>
+      <p>Two front ends over one engine, so they can never disagree.</p>
+    </div>
+
+    <div class="grid grid--3">
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-shield"></use></svg></div>
+        <h3>Dashboard</h3>
+        <ul>
+          <li>Eight sections, light and dark</li>
+          <li>Live scan progress</li>
+          <li>Quarantine review and restore</li>
+          <li>Settings, exclusions, schedule</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-terminal"></use></svg></div>
+        <h3>Command line</h3>
+        <ul>
+          <li>Every feature is scriptable</li>
+          <li><code>--json</code> on every command</li>
+          <li>Exit 0 clean, 1 threat, 2 error</li>
+          <li>Drops straight into cron and CI</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-clock"></use></svg></div>
+        <h3>Scheduler</h3>
+        <ul>
+          <li>Cron-style expressions</li>
+          <li>Recurring quick and full scans</li>
+          <li>Automatic signature refresh</li>
+          <li>Daily patch check</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-list"></use></svg></div>
+        <h3>Activity log</h3>
+        <ul>
+          <li>Every scan, detection and action</li>
+          <li>Filter by category</li>
+          <li>Full scan and detection history</li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-settings"></use></svg></div>
+        <h3>Configuration</h3>
+        <ul>
+          <li>One JSON file, one data directory</li>
+          <li>Path and extension exclusions</li>
+          <li>Heuristic sensitivity</li>
+          <li>Portable via <code>GUARDIANTUS_HOME</code></li>
+        </ul>
+      </article>
+      <article class="card feature">
+        <div class="feature__icon"><svg><use href="#i-box"></use></svg></div>
+        <h3>Embeddable</h3>
+        <ul>
+          <li>Engine has no service dependency</li>
+          <li>Import <code>FileScanner</code> directly</li>
+          <li>Add your own detection layer</li>
+          <li>Add your own package manager</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="tight sunken" id="security">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Security of the tool itself</h2>
+      <p>The dashboard can quarantine files and install packages, so it is treated as a real attack surface.</p>
+    </div>
+
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Control</th><th>Attack it stops</th></tr></thead>
+        <tbody>
+          <tr><td>Loopback bind</td><td>Remote access to the API</td></tr>
+          <tr><td>Per-run session token</td><td>Other local processes driving it</td></tr>
+          <tr><td>Host header validation</td><td>DNS rebinding — a visited page controlling your local API</td></tr>
+          <tr><td>Origin validation</td><td>Cross-origin requests</td></tr>
+          <tr><td>Strict CSP, no inline script or style</td><td>Injected-content execution</td></tr>
+          <tr><td>Resolve-and-recheck static paths</td><td><code>../</code> directory traversal</td></tr>
+          <tr><td>Fixed argv, validated package ids</td><td>Command injection via package names</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="tight">
+  <div class="wrap">
+    <div class="cta-band">
+      <h2>Try it on real files.</h2>
+      <p>The Threat Lab runs the same detection logic in your browser. Nothing is uploaded.</p>
+      <div class="row center">
+        <a class="btn btn--primary btn--lg" href="demo.html"><svg><use href="#i-play"></use></svg>Open the Threat Lab</a>
+        <a class="btn btn--lg" href="download.html">Download</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="index.html">
+          <span class="brand__mark"><svg><use href="#i-logo"></use></svg></span>
+          <span class="brand__name">Guardiantus <span>AV</span></span>
+        </a>
+        <p>Open-source endpoint protection. Multi-layer engine, real-time
+           scanning, quarantine and patch management — no telemetry.</p>
+      </div>
+
+      <div class="foot-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="features.html">All features</a></li>
+          <li><a href="features.html#engine">Detection engine</a></li>
+          <li><a href="features.html#protection">Real-time protection</a></li>
+          <li><a href="features.html#quarantine">Quarantine</a></li>
+          <li><a href="features.html#updates">Updates</a></li>
+          <li><a href="features.html#interfaces">Dashboard &amp; CLI</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4>Get started</h4>
+        <ul>
+          <li><a href="download.html">Download</a></li>
+          <li><a href="download.html#install">Install</a></li>
+          <li><a href="tutorial.html">Tutorial</a></li>
+          <li><a href="tutorial.html#verify">Verify it works</a></li>
+          <li><a href="demo.html">Threat Lab</a></li>
+          <li><a href="index.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV" rel="noopener">Source code</a></li>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV/blob/main/docs/ARCHITECTURE.md" rel="noopener">Architecture</a></li>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV/issues" rel="noopener">Report an issue</a></li>
+          <li><a href="https://github.com/aquaxs1/Guardiantus-AV/blob/main/LICENSE" rel="noopener">MIT licence</a></li>
+          <li><a href="terms.html">Terms of Use</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot-bar">
+      <p>&copy; <span data-year>2026</span> Guardiantus AV · MIT licensed · Not affiliated with any commercial antivirus vendor.</p>
+      <nav aria-label="Legal and quick links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="demo.html">Threat Lab</a>
+        <a href="tutorial.html">Tutorial</a>
+        <a href="download.html">Download</a>
+        <a href="terms.html">Terms of Use</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

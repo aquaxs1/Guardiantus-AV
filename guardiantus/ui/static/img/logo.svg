@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Guardiantus AV">
+  <title>Guardiantus AV</title>
+  <g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- shield -->
+    <path d="M100 20 C122 34 148 42 174 44 L174 104 C174 141 143 170 100 184 C57 170 26 141 26 104 L26 44 C52 42 78 34 100 20 Z"/>
+    <!-- G -->
+    <path d="M118 78 A30 30 0 1 0 118 132 L118 108 L100 108" stroke-width="5.5"/>
+    <!-- A -->
+    <path d="M96 142 L119 76 L142 142" stroke-width="5.5"/>
+    <path d="M105 118 L133 118" stroke-width="5.5"/>
+  </g>
+  <!-- accent sweep -->
+  <path d="M124 106 C146 106 163 97 176 80 C171 105 152 121 128 124 Z" fill="currentColor"/>
+</svg>

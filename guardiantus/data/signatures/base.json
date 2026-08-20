@@ -1,0 +1,59 @@
+{
+  "name": "guardiantus-base",
+  "version": "2026.08.20",
+  "description": "Baseline signature set shipped with Guardiantus AV. Patterns are stored hex-encoded so this file does not itself trip on-access scanners.",
+  "hashes": [
+    {
+      "sha256": "fdd7d929408aa6fde9eda1a38bdf9c8950c527b6d4ea86b1ef79dee644b37b3d",
+      "md5": "a7e78277537a2b45ed5e0158ac6b261c",
+      "name": "Guardiantus.SelfTest.HashProbe",
+      "severity": "info",
+      "description": "Harmless self-test file used to verify that hash-based detection is working. Create it with: printf 'GUARDIANTUS-AV-SIGNATURE-SELFTEST-FILE-DO-NOT-REMOVE\\n' > probe.txt"
+    }
+  ],
+  "patterns": [
+    {
+      "name": "EICAR-Test-File",
+      "hex": "45494341522d5354414e444152442d414e544956495255532d544553542d46494c45",
+      "severity": "low",
+      "description": "EICAR anti-malware test file. Harmless by design; used to verify that a scanner is live."
+    },
+    {
+      "name": "Backdoor.PHP.WebShell.Eval",
+      "hex": "3c3f70687020406576616c28245f504f5354",
+      "severity": "critical",
+      "description": "PHP web shell executing attacker-supplied POST data"
+    },
+    {
+      "name": "Backdoor.PHP.WebShell.Assert",
+      "hex": "61737365727428245f524551554553545b",
+      "severity": "critical",
+      "description": "PHP web shell executing attacker-supplied request data via assert()"
+    },
+    {
+      "name": "Trojan.PowerShell.HiddenEncoded",
+      "hex": "706f7765727368656c6c202d6e6f70202d772068696464656e202d656e63",
+      "severity": "high",
+      "description": "PowerShell launched with no profile, hidden window and a base64 payload"
+    },
+    {
+      "name": "Backdoor.Meterpreter.Marker",
+      "hex": "6d65746572707265746572",
+      "severity": "high",
+      "description": "Metasploit Meterpreter payload marker"
+    },
+    {
+      "name": "HackTool.Mimikatz.Command",
+      "hex": "73656b75726c73613a3a6c6f676f6e70617373776f726473",
+      "severity": "critical",
+      "description": "Mimikatz credential-dumping command"
+    },
+    {
+      "name": "Trojan.Win32.ReflectiveLoader",
+      "hex": "5265666c6563746976654c6f61646572",
+      "magic_hex": "4d5a",
+      "severity": "high",
+      "description": "Reflective DLL loader export, common in post-exploitation implants"
+    }
+  ]
+}

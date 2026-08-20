@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "guardiantus-av"
+version = "1.0.0"
+description = "Guardiantus AV — real-time protection, scanning, quarantine and update management."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Guardiantus" }]
+keywords = ["antivirus", "security", "malware", "scanner", "yara", "endpoint"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Environment :: Web Environment",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+  "Topic :: System :: Monitoring",
+]
+
+# The engine, the CLI and the dashboard run on the standard library alone.
+dependencies = []
+
+[project.optional-dependencies]
+# Event-driven real-time protection (inotify / FSEvents / Win32) instead of polling.
+realtime = ["watchdog>=3.0"]
+# Native YARA instead of the built-in fallback rule interpreter.
+yara = ["yara-python>=4.3"]
+full = ["watchdog>=3.0", "yara-python>=4.3"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.4"]
+
+[project.scripts]
+guardiantus = "guardiantus.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/aquaxs1/Guardiantus-AV"
+Source = "https://github.com/aquaxs1/Guardiantus-AV"
+Issues = "https://github.com/aquaxs1/Guardiantus-AV/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["guardiantus*"]
+
+[tool.setuptools.package-data]
+guardiantus = [
+  "ui/templates/*.html",
+  "ui/static/css/*.css",
+  "ui/static/js/*.js",
+  "ui/static/img/*.svg",
+  "data/signatures/*.json",
+  "data/rules/*.yar",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:guardiantus.*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "SIM"]
+ignore = [
+  "B008",   # function call in a default argument — not a pattern used here
+  "SIM105", # contextlib.suppress reads worse than try/except/pass in hot paths
+]
+# The "UP" (pyupgrade) group is deliberately not selected: the project supports
+# Python 3.9, and those rules push builtin generics and `X | None` unions that
+# only work in annotations there, which would make the typing style inconsistent
+# between annotated and runtime positions.
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

@@ -623,3 +623,27 @@ details.faq p { padding: 0 2px 18px; color: var(--text-muted); font-size: 14px; 
 
 #primary-download { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 #primary-download .field__hint { padding-left: 2px; }
+
+
+/* ----------------------------------------------------------------- 404 page */
+.nf-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+.nf-inner { max-width: 46ch; }
+.nf-inner img { width: 76px; height: auto; margin: 0 auto 26px; }
+.nf-code {
+  font-size: clamp(4.5rem, 17vw, 8.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin: 0;
+  opacity: 0.13;
+}
+.nf-inner h1 { font-size: clamp(1.5rem, 4.5vw, 2.1rem); margin: -0.3em 0 0.6rem; }
+.nf-inner p { margin: 0 0 1.9rem; opacity: 0.75; }

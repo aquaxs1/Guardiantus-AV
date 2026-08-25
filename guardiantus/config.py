@@ -13,11 +13,14 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Set
 
 from . import paths
 
 _LOCK = threading.RLock()
+
+#: Cap on the allow-list so it cannot grow without bound.
+MAX_TRUSTED_HASHES = 1000
 
 DEFAULTS: Dict[str, Any] = {
     "general": {
@@ -45,6 +48,12 @@ DEFAULTS: Dict[str, Any] = {
         "excluded_extensions": [],
         # Minimum score at which a heuristic hit is reported as a detection.
         "heuristic_threshold": 60,
+        # Heuristics are guesses. Off by default, only files identified by a
+        # signature or a YARA rule are moved into the vault.
+        "quarantine_suspicious": False,
+        # SHA-256 of files the user restored from quarantine. Never flagged
+        # again -- otherwise a restore undoes itself on the next scan.
+        "trusted_hashes": [],
     },
     "realtime": {
         "enabled": False,
@@ -179,6 +188,28 @@ class Config:
             except OSError:
                 continue
         return out
+
+    def trusted_hashes(self) -> Set[str]:
+        """Digests the user has explicitly allowed."""
+        return {
+            str(digest).lower()
+            for digest in (self.get("scanning", "trusted_hashes") or [])
+            if digest
+        }
+
+    def trust_hash(self, digest: str) -> None:
+        """Remember that the user considers this exact file harmless."""
+        if not digest:
+            return
+        with _LOCK:
+            bucket = self._data.setdefault("scanning", {})
+            current = [str(h).lower() for h in bucket.get("trusted_hashes") or []]
+            digest = digest.lower()
+            if digest in current:
+                return
+            current.append(digest)
+            bucket["trusted_hashes"] = current[-MAX_TRUSTED_HASHES:]
+        self.save()
 
     def excluded_extensions(self) -> Iterable[str]:
         return {

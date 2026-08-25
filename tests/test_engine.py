@@ -128,6 +128,115 @@ def test_heuristics_respect_threshold(samples):
     assert heuristics.analyse(data, path=samples / "cradle.ps1", threshold=10_000) == []
 
 
+# ------------------------------------------------------- heuristics: quiet
+
+def test_supporting_findings_alone_never_raise_an_alarm(tmp_path):
+    """Circumstantial signals must not add up to a detection on their own.
+
+    This file trips high entropy, an embedded base64 blob, a pile of URLs and
+    a pile of IP addresses -- and is a perfectly ordinary launcher log.
+    """
+    target = tmp_path / "launcher.ps1"
+    target.write_text(
+        "\n".join(
+            f"[{i:05d}] fetching https://libraries.example.net/pkg-{i}/lib-{i}.jar "
+            f"sha1={i:040x} from 13.107.{i % 255}.{(i * 7) % 255}"
+            for i in range(2000)
+        )
+        + "\n# cache: " + "QUJDRGVmZ2hpams" * 400 + "\n"
+    )
+    assert heuristics.analyse(target.read_bytes(), path=target, threshold=60) == []
+
+
+def test_launcher_log_is_not_obfuscated_script_content(scanner, tmp_path):
+    target = tmp_path / "launcher_log2.txt"
+    target.write_text(
+        "\n".join(
+            f"[{i:05d}] INFO downloading https://example.invalid/asset{i}.bin "
+            f"from 93.184.{i % 255}.{(i * 3) % 255} hash={i:064x}"
+            for i in range(4000)
+        )
+    )
+    assert scanner.scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_json_full_of_base64_is_clean(scanner, tmp_path):
+    """Skin caches, key stores and web assets embed base64 as a matter of course."""
+    import base64
+    import json
+
+    target = tmp_path / "launcher_custom_skins.json"
+    target.write_text(json.dumps({
+        f"skin{i}": base64.b64encode(bytes(range(256)) * 4).decode() for i in range(20)
+    }))
+    assert scanner.scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_two_injection_apis_are_not_enough(tmp_path):
+    target = tmp_path / "installer.exe"
+    target.write_bytes(_pe_image(b"VirtualAllocEx\x00WriteProcessMemory\x00"))
+    assert heuristics.analyse(target.read_bytes(), path=target, threshold=60) == []
+
+
+def test_api_set_forwarder_is_judged_on_signatures_only(scanner, tmp_path):
+    """A genuine Windows forwarder DLL lists every process API by design."""
+    name = "api-ms-win-core-processthreads-l1-1-0.dll"
+    target = tmp_path / name
+    target.write_bytes(_pe_image(
+        name.encode() + b"\x00VirtualAllocEx\x00WriteProcessMemory\x00CreateRemoteThread\x00"
+    ))
+    assert scanner.scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_impostor_cannot_hide_behind_a_system_name(scanner, tmp_path):
+    """Borrowing the name without being the forwarder buys nothing."""
+    target = tmp_path / "api-ms-win-core-memory-l1-1-0.dll"
+    target.write_bytes(_pe_image(
+        b"VirtualAllocEx\x00WriteProcessMemory\x00CreateRemoteThread\x00"
+    ))
+    assert scanner.scan_file(target).verdict is Verdict.MALICIOUS
+
+
+def _pe_image(payload: bytes) -> bytes:
+    """A minimal, structurally valid PE carrying ``payload`` as string data."""
+    header = bytearray(b"MZ" + b"\x00" * 0x3E)
+    header[0x3C:0x40] = (0x80).to_bytes(4, "little")
+    header += b"\x00" * (0x80 - len(header))
+    header += b"PE\x00\x00" + (2).to_bytes(2, "little") + (4).to_bytes(2, "little")
+    header += b"\x00" * 20
+    return bytes(header) + payload + b"\x00" * 20_000
+
+
+def test_the_scanner_does_not_detect_itself(scanner):
+    """Our own rules and signature database are lists of malware strings."""
+    from guardiantus import paths
+
+    for own in (paths.BUNDLED_RULES / "guardiantus_base.yar",
+                paths.BUNDLED_SIGNATURES / "base.json"):
+        result = scanner.scan_file(own)
+        assert result.verdict is Verdict.SKIPPED, f"{own.name} was scanned"
+        assert result.error == "excluded"
+
+
+def test_the_data_directory_is_never_scanned(scanner, isolated_home):
+    planted = isolated_home / "logs" / "note.txt"
+    planted.parent.mkdir(parents=True, exist_ok=True)
+    planted.write_text("all your files are encrypted; to decrypt your files send bitcoin")
+    assert scanner.scan_file(planted).verdict is Verdict.SKIPPED
+
+
+def test_a_trusted_hash_is_never_flagged_again(scanner, samples):
+    from guardiantus.core.hashing import hash_file
+
+    target = samples / "eicar.com"
+    assert scanner.scan_file(target).verdict is Verdict.MALICIOUS
+
+    scanner.config.trust_hash(hash_file(target)["sha256"])
+    result = scanner.scan_file(target)
+    assert result.verdict is Verdict.CLEAN
+    assert result.error == "allowed by user"
+
+
 # --------------------------------------------------------------------- yara
 
 

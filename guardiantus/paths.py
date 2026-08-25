@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import List
 
 
 def _package_root() -> Path:
@@ -40,6 +41,37 @@ BUNDLED_RULES = PACKAGE_ROOT / "data" / "rules"
 
 UI_STATIC = PACKAGE_ROOT / "ui" / "static"
 UI_TEMPLATES = PACKAGE_ROOT / "ui" / "templates"
+
+
+def self_paths() -> List[Path]:
+    """Directories that belong to Guardiantus itself.
+
+    Scanning our own files is worse than pointless: the signature database
+    contains malware strings and the YARA rules contain the very patterns they
+    look for, so a scan of the install directory reliably "detects" the
+    scanner.  Under a frozen build those files live in a throwaway
+    ``_MEIxxxxxx`` directory next to the unpacked runtime DLLs, which is inside
+    the user's temp folder -- squarely in the path of a quick scan.
+    """
+    candidates = [PACKAGE_ROOT, _default_home()]
+    if getattr(sys, "frozen", False):
+        unpacked = getattr(sys, "_MEIPASS", None)
+        if unpacked:
+            candidates.append(Path(unpacked))
+        try:
+            candidates.append(Path(sys.executable).parent)
+        except (OSError, ValueError):
+            pass
+
+    resolved: List[Path] = []
+    for candidate in candidates:
+        try:
+            path = Path(candidate).resolve()
+        except OSError:
+            continue
+        if path not in resolved:
+            resolved.append(path)
+    return resolved
 
 
 def _default_home() -> Path:

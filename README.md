@@ -31,12 +31,12 @@ gracefully without them — nothing silently stops working.
 - **Hash signatures** — MD5 / SHA-1 / SHA-256 of known-bad files. Zero false positives.
 - **Pattern signatures** — byte fragments that survive repacking and cover whole families.
 - **YARA rules** — 13 bundled rules for reverse shells, ransomware, stealers, injectors, miners and macro droppers. Uses `yara-python` when installed, and a built-in interpreter when it is not.
-- **Heuristics** — entropy analysis, PE structure checks, packer detection, process-injection API chains, script-obfuscation patterns, ransom-note text, double extensions, right-to-left-override filenames and executables masquerading as documents.
+- **Heuristics** — ransom-note text, double extensions, right-to-left-override filenames, executables masquerading as documents, reverse shells, encoded PowerShell and shadow-copy deletion. Entropy, packing, embedded base64 and process-injection API chains count as corroboration only: an alarm always needs at least one construct specific to malware, so a log file full of URLs or a Windows API-set DLL cannot add up to a detection on its own.
 - **Archive inspection** — ZIP members are scanned in memory, with zip-bomb and path-traversal detection.
 
 **Protection**
 - **Real-time protection** — event-driven via `watchdog` (inotify / FSEvents / Win32), with a stdlib polling fallback so it works on a bare Python install.
-- **Quarantine vault** — threats are moved out of reach and stored inert; every entry restores byte-for-byte, because false positives happen.
+- **Quarantine vault** — confirmed threats are moved out of reach and stored inert; every entry restores byte-for-byte, and restoring also tells the engine to leave that file alone from then on. Heuristic suspicions are reported rather than moved unless you ask otherwise.
 - **Scan types** — quick (high-risk locations), full (every mounted drive), custom paths, and single files. Pausable, resumable, cancellable, with live progress.
 
 **Maintenance**
@@ -121,12 +121,20 @@ error — so they drop straight into CI and cron:
 guardiantus --json scan ./upload | jq '.threats[].name'
 ```
 
-Every scan quarantines what it finds by default. Override it per run with
-`--no-quarantine` (report only) or globally:
+Scans quarantine what a signature or a YARA rule identifies. Heuristic
+suspicions are reported and left where they are, since a heuristic is an
+inference rather than an identification. Override either behaviour per run with
+`--no-quarantine` (report everything) or globally:
 
 ```bash
-guardiantus config set scanning.auto_quarantine false
+guardiantus config set scanning.auto_quarantine false        # never move anything
+guardiantus config set scanning.quarantine_suspicious true   # move suspicions too
 ```
+
+Guardiantus never scans its own installation directory, its data directory or
+the vault: the signature database is a list of malware strings and the YARA
+rules spell out the patterns they hunt for, so scanning them would "detect" the
+scanner every time.
 
 ## Verify it is working
 
@@ -164,7 +172,9 @@ Notable settings:
 | Key | Default | Meaning |
 |---|---|---|
 | `scanning.heuristic_threshold` | `60` | Lower is more aggressive |
-| `scanning.auto_quarantine` | `true` | Quarantine what scans find |
+| `scanning.auto_quarantine` | `true` | Quarantine what scans identify |
+| `scanning.quarantine_suspicious` | `false` | Also move heuristic-only hits |
+| `scanning.trusted_hashes` | `[]` | Digests of restored files, never flagged again |
 | `scanning.worker_threads` | `0` | 0 picks a number from your CPU count |
 | `scanning.excluded_paths` | `[]` | Never scanned |
 | `realtime.action` | `quarantine` | `quarantine` or `report` |

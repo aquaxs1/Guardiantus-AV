@@ -36,15 +36,29 @@ can never disagree about protection status.
 `FileScanner.scan_file()` runs the cheap layers first and stops early where it
 can:
 
-1. **Policy** — symlink, exclusion and vault checks. Skipped files cost nothing.
+1. **Policy** — symlink and exclusion checks, plus Guardiantus's own
+   installation, data directory and vault. Skipped files cost nothing.
 2. **Hashing** — one streaming pass produces MD5, SHA-1 and SHA-256.
-3. **Hash signatures** — a dict lookup. Exact, zero false positives.
-4. **Deep read** — the first 4 MiB into memory. Files over
+3. **Allow-list** — digests the user restored from quarantine stop here, clean.
+4. **Hash signatures** — a dict lookup. Exact, zero false positives.
+5. **Deep read** — the first 4 MiB into memory. Files over
    `scanning.max_file_size_mb` stop here, hashed but not inspected.
-5. **Pattern signatures** — byte fragments, optionally anchored to a magic value.
-6. **YARA** — `yara-python` if present, otherwise the built-in interpreter.
-7. **Heuristics** — scored rules summed against `scanning.heuristic_threshold`.
-8. **Archives** — ZIP members scanned from memory, recursing into step 5.
+6. **Pattern signatures** — byte fragments, optionally anchored to a magic value.
+7. **YARA** — `yara-python` if present, otherwise the built-in interpreter.
+8. **Heuristics** — scored rules summed against `scanning.heuristic_threshold`.
+9. **Archives** — ZIP members scanned from memory, recursing into step 6.
+
+Steps 7 and 8 are skipped for Windows API-set forwarder DLLs, whose contents
+are the names of every Win32 function they re-export; those are judged on
+signatures alone.
+
+Heuristic findings are split in two. *Primary* findings are constructs
+specific to malware — an encoded PowerShell command, a reverse shell,
+`vssadmin delete shadows`, an executable wearing a `.pdf` name. *Supporting*
+findings are properties malware often has and ordinary files have too — high
+entropy, an embedded base64 blob, hardcoded URLs, an import of
+`VirtualAllocEx`. A detection needs at least one primary finding; supporting
+ones only add weight to it, and can never raise an alarm by themselves.
 
 Findings are then deduplicated by `(name, source)` and folded into one verdict:
 

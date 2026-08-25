@@ -257,7 +257,13 @@ class RealtimeProtection:
 
         handled = "reported"
         action = self.config.get("realtime", "action", "quarantine")
-        if action == "quarantine" and self.config.get("quarantine", "enabled", True):
+        # Heuristics are guesses, and a guess that silently moves a file the
+        # user is working with is worse than one that speaks up. Only files a
+        # signature or a YARA rule identified are moved on sight.
+        confident = result.verdict is Verdict.MALICIOUS or bool(
+            self.config.get("scanning", "quarantine_suspicious", False)
+        )
+        if action == "quarantine" and confident and self.config.get("quarantine", "enabled", True):
             try:
                 entry = self.quarantine.quarantine_file(result)
                 result.quarantined = True

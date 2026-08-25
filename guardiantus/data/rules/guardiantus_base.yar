@@ -129,6 +129,11 @@ rule Credential_Stealer_Browser
         ($login and $chrome) or ($firefox and $key) or ($dpapi and $cookies)
 }
 
+/*
+    Reading key state is what every game and input library does; installing the
+    low-level hook is what makes it a keylogger.  Requiring the hook keeps this
+    off ordinary input code.
+*/
 rule Keylogger_Windows_Hooks
 {
     meta:
@@ -142,9 +147,15 @@ rule Keylogger_Windows_Hooks
         $async = "GetAsyncKeyState"
         $state = "GetKeyboardState"
     condition:
-        ($hook and $ll) or ($async and $state)
+        $hook and ($ll or ($async and $state))
 }
 
+/*
+    All three stages of the injection chain, not two of them plus OpenProcess.
+    Naming a couple of these APIs is ordinary for debuggers, installers, and
+    every Windows library that re-exports the process API -- the api-ms-win-*
+    forwarder DLLs list the lot of them and nothing else.
+*/
 rule Process_Injection_Classic
 {
     meta:
@@ -153,13 +164,12 @@ rule Process_Injection_Classic
         score = 85
         description = "Classic CreateRemoteThread process-injection API chain"
     strings:
-        $open = "OpenProcess"
         $alloc = "VirtualAllocEx"
         $write = "WriteProcessMemory"
         $thread = "CreateRemoteThread"
         $apc = "QueueUserAPC"
     condition:
-        $alloc and $write and ($thread or $apc or $open)
+        $alloc and $write and ($thread or $apc)
 }
 
 rule Crypto_Miner_Config

@@ -122,7 +122,7 @@ class Application:
                 {
                     "id": "realtime-off",
                     "severity": "high",
-                    "title": "Real-time protection is off",
+                    "title": "Protection is switched off",
                     "action": "enable_realtime",
                 }
             )
@@ -133,7 +133,7 @@ class Application:
                 {
                     "id": "signatures-stale",
                     "severity": "medium",
-                    "title": "Signature database is more than 7 days old",
+                    "title": "Threat definitions are over a week old",
                     "action": "update_signatures",
                 }
             )
@@ -142,7 +142,7 @@ class Application:
                 {
                     "id": "signatures-empty",
                     "severity": "high",
-                    "title": "No signatures loaded",
+                    "title": "No threat definitions loaded",
                     "action": "update_signatures",
                 }
             )
@@ -162,7 +162,7 @@ class Application:
                 {
                     "id": "scan-stale",
                     "severity": "low",
-                    "title": "Last scan was more than a week ago",
+                    "title": "The last scan was over a week ago",
                     "action": "quick_scan",
                 }
             )
@@ -173,7 +173,7 @@ class Application:
                 {
                     "id": "quarantine-pending",
                     "severity": "low",
-                    "title": f"{active_quarantine} item(s) waiting in quarantine",
+                    "title": f"{active_quarantine} file(s) waiting in quarantine",
                     "action": "review_quarantine",
                 }
             )
@@ -186,8 +186,8 @@ class Application:
             "state": state,
             "headline": {
                 "protected": "You are protected",
-                "attention": "Attention needed",
-                "at_risk": "Your device is at risk",
+                "attention": "A couple of things need a look",
+                "at_risk": "Your device needs attention",
             }[state],
             "issues": issues,
             "realtime": self.realtime.status(),

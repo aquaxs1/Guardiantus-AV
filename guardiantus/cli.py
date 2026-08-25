@@ -336,6 +336,7 @@ def cmd_quarantine(app: Application, args: argparse.Namespace) -> int:
             _emit({"restored": str(target)}, args.json)
             if not args.json:
                 print(paint(f"  Restored to {target}", "green"))
+                print(paint("  This file will not be flagged again.", "grey"))
         else:
             app.quarantine.delete(entry_id)
             _emit({"deleted": entry_id}, args.json)

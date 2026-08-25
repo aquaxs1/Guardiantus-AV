@@ -466,6 +466,22 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
   border-bottom: 1px solid var(--border);
 }
 .setting:last-child { border-bottom: 0; }
+
+/* Advanced settings: a disclosure whose summary looks like a card header. */
+.advanced__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px solid transparent;
+}
+.advanced__summary::-webkit-details-marker { display: none; }
+.advanced__summary h2 { display: inline; }
+.advanced__summary:hover { background: var(--surface-sunken); }
+.advanced[open] .advanced__summary { border-bottom-color: var(--border); }
 .setting__text { min-width: 0; }
 .setting__title { font-weight: 550; }
 .setting__desc { font-size: 12.5px; color: var(--text-muted); margin-top: 1px; }
@@ -652,6 +668,5 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 .mt-2 { margin-top: 12px; }
 .mt-3 { margin-top: 14px; }
 .select--compact { width: 180px; }
-.input--cron { width: 130px; }
 .row--clickable { cursor: pointer; }
 .toast--leaving { opacity: 0; transition: opacity 200ms ease; }

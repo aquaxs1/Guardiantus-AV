@@ -160,13 +160,13 @@
           <div id="live-scan-slot"></div>
 
           <div class="grid grid--4">
-            <div class="card stat"><div class="stat__label">Real-time</div>
+            <div class="card stat"><div class="stat__label">Protection</div>
               <div class="stat__value" id="stat-realtime">—</div>
               <div class="stat__meta" id="stat-realtime-meta">&nbsp;</div></div>
-            <div class="card stat"><div class="stat__label">Signatures</div>
+            <div class="card stat"><div class="stat__label">Definitions</div>
               <div class="stat__value" id="stat-signatures">—</div>
               <div class="stat__meta" id="stat-signatures-meta">&nbsp;</div></div>
-            <div class="card stat"><div class="stat__label">Threats (7 days)</div>
+            <div class="card stat"><div class="stat__label">Found this week</div>
               <div class="stat__value" id="stat-threats">—</div>
               <div class="stat__meta" id="stat-threats-meta">&nbsp;</div></div>
             <div class="card stat"><div class="stat__label">Quarantine</div>
@@ -176,7 +176,7 @@
 
           <div class="grid grid--2">
             <div class="card">
-              <div class="card__head"><h2>Recommended actions</h2></div>
+              <div class="card__head"><h2>Worth doing</h2></div>
               <div class="card__body--flush" id="issues"></div>
             </div>
             <div class="card">
@@ -198,7 +198,7 @@
       <!-- ================================================= scan -->
       <section class="view" id="view-scan" hidden>
         <div class="page-head">
-          <div><h1>Scan</h1><p>Check files, folders or the whole system for threats</p></div>
+          <div><h1>Scan</h1><p>Check a file, a folder, or everything</p></div>
         </div>
 
         <div class="stack">
@@ -206,21 +206,21 @@
             <div class="card">
               <div class="card__body">
                 <h2>Quick scan</h2>
-                <p class="setting__desc">Downloads, Desktop, Documents, temp and autostart locations. Takes a minute or two.</p>
+                <p class="setting__desc">The places threats usually land: Downloads, Desktop, Documents and temp. A minute or two.</p>
                 <div class="mt-3"><button class="btn btn--primary" data-scan="quick">Run quick scan</button></div>
               </div>
             </div>
             <div class="card">
               <div class="card__body">
                 <h2>Full scan</h2>
-                <p class="setting__desc">Every readable file on every mounted drive. Thorough, and slow — best run overnight.</p>
+                <p class="setting__desc">Every file on every drive. Thorough, and slow — best left running overnight.</p>
                 <div class="mt-3"><button class="btn" data-scan="full">Run full scan</button></div>
               </div>
             </div>
             <div class="card">
               <div class="card__body">
                 <h2>Custom scan</h2>
-                <p class="setting__desc">Point the engine at one specific file or folder.</p>
+                <p class="setting__desc">Check one file or folder you picked.</p>
                 <div class="field mt-3">
                   <input class="input" id="custom-path" placeholder="/home/you/Downloads" spellcheck="false">
                   <div class="row">
@@ -228,7 +228,7 @@
                     <label class="switch">
                       <input type="checkbox" id="custom-quarantine">
                       <span class="switch__track"></span>
-                      <span class="field__hint">Quarantine hits</span>
+                      <span class="field__hint">Quarantine what it finds</span>
                     </label>
                   </div>
                 </div>
@@ -251,7 +251,7 @@
       <!-- =========================================== protection -->
       <section class="view" id="view-protection" hidden>
         <div class="page-head">
-          <div><h1>Protection</h1><p>Real-time, on-access scanning of the folders you care about</p></div>
+          <div><h1>Protection</h1><p>Watch the folders you care about, as files arrive</p></div>
         </div>
 
         <div class="stack">
@@ -259,7 +259,7 @@
             <div class="setting">
               <div class="setting__text">
                 <div class="setting__title">Real-time protection</div>
-                <div class="setting__desc" id="realtime-desc">Scans files the moment they are created or changed.</div>
+                <div class="setting__desc" id="realtime-desc">Checks files the moment they arrive or change.</div>
               </div>
               <div class="setting__control">
                 <label class="switch">
@@ -270,8 +270,8 @@
             </div>
             <div class="setting">
               <div class="setting__text">
-                <div class="setting__title">Action on detection</div>
-                <div class="setting__desc">What happens when a threat is found by real-time protection.</div>
+                <div class="setting__title">When something is found</div>
+                <div class="setting__desc">Confirmed threats are moved; suspicions are always only reported.</div>
               </div>
               <div class="setting__control">
                 <select class="select" id="realtime-action">
@@ -289,7 +289,7 @@
                 <div class="field">
                   <span class="field__label">One path per line</span>
                   <textarea class="textarea" id="watch-paths" spellcheck="false"></textarea>
-                  <span class="field__hint">Leave empty to use sensible defaults for this platform.</span>
+                  <span class="field__hint">Leave empty for the usual folders.</span>
                 </div>
                 <div class="row mt-2">
                   <button class="btn btn--primary btn--sm" id="save-watch-paths">Save folders</button>
@@ -306,21 +306,21 @@
           </div>
 
           <div class="card">
-            <div class="card__head"><h2>Exclusions</h2></div>
+            <div class="card__head"><h2>Skip these</h2></div>
             <div class="card__body">
               <div class="grid grid--2">
                 <div class="field">
-                  <span class="field__label">Excluded paths (one per line)</span>
+                  <span class="field__label">Folders to skip (one per line)</span>
                   <textarea class="textarea" id="excluded-paths" spellcheck="false"></textarea>
                 </div>
                 <div class="field">
-                  <span class="field__label">Excluded extensions (one per line)</span>
+                  <span class="field__label">File types to skip (one per line)</span>
                   <textarea class="textarea" id="excluded-extensions" spellcheck="false" placeholder=".iso&#10;.vmdk"></textarea>
                 </div>
               </div>
               <div class="row mt-2">
-                <button class="btn btn--primary btn--sm" id="save-exclusions">Save exclusions</button>
-                <span class="field__hint">Exclusions apply to every scan and to real-time protection.</span>
+                <button class="btn btn--primary btn--sm" id="save-exclusions">Save</button>
+                <span class="field__hint">Applies to every scan and to protection.</span>
               </div>
             </div>
           </div>
@@ -330,10 +330,10 @@
       <!-- =========================================== quarantine -->
       <section class="view" id="view-quarantine" hidden>
         <div class="page-head">
-          <div><h1>Quarantine</h1><p>Neutralised files, stored inert and fully restorable</p></div>
+          <div><h1>Quarantine</h1><p>Files kept where they cannot run. You can put any of them back.</p></div>
           <div class="row">
             <button class="btn btn--ghost btn--sm" id="refresh-quarantine"><svg><use href="#icon-refresh"></use></svg>Refresh</button>
-            <button class="btn btn--danger btn--sm" id="empty-quarantine"><svg><use href="#icon-trash"></use></svg>Empty vault</button>
+            <button class="btn btn--danger btn--sm" id="empty-quarantine"><svg><use href="#icon-trash"></use></svg>Delete all</button>
           </div>
         </div>
         <div class="card">
@@ -344,13 +344,13 @@
       <!-- ============================================== updates -->
       <section class="view" id="view-updates" hidden>
         <div class="page-head">
-          <div><h1>Updates</h1><p>Signature database and installed program updates</p></div>
+          <div><h1>Updates</h1><p>Threat definitions and your installed programs</p></div>
         </div>
 
         <div class="stack">
           <div class="card">
             <div class="card__head">
-              <h2>Signature database</h2>
+              <h2>Threat definitions</h2>
               <div class="row">
                 <button class="btn btn--sm" id="check-signatures">Check</button>
                 <button class="btn btn--primary btn--sm" id="update-signatures"><svg><use href="#icon-download"></use></svg>Update now</button>
@@ -370,7 +370,7 @@
           </div>
 
           <div class="card">
-            <div class="card__head"><h2>Detected package managers</h2></div>
+            <div class="card__head"><h2>Where updates come from</h2></div>
             <div class="card__body--flush" id="manager-list"></div>
           </div>
         </div>
@@ -379,7 +379,7 @@
       <!-- ============================================= schedule -->
       <section class="view" id="view-schedule" hidden>
         <div class="page-head">
-          <div><h1>Schedule</h1><p>Recurring scans and automatic update checks</p></div>
+          <div><h1>Schedule</h1><p>Scans and update checks that run on their own</p></div>
         </div>
         <div class="card">
           <div class="card__body--flush" id="schedule-list"></div>
@@ -389,7 +389,7 @@
       <!-- =============================================== events -->
       <section class="view" id="view-events" hidden>
         <div class="page-head">
-          <div><h1>Activity</h1><p>Everything Guardiantus has done on this device</p></div>
+          <div><h1>Activity</h1><p>Everything Guardiantus has done here</p></div>
           <div class="row">
             <select class="select select--compact" id="event-filter">
               <option value="">All categories</option>
@@ -411,34 +411,29 @@
       <!-- ============================================= settings -->
       <section class="view" id="view-settings" hidden>
         <div class="page-head">
-          <div><h1>Settings</h1><p>Engine behaviour, performance and update sources</p></div>
+          <div><h1>Settings</h1><p>How Guardiantus checks your files</p></div>
         </div>
 
         <div class="stack">
           <div class="card">
-            <div class="card__head"><h2>Detection engine</h2></div>
+            <div class="card__head"><h2>Detection</h2></div>
             <div class="setting">
               <div class="setting__text">
-                <div class="setting__title">Heuristic analysis</div>
-                <div class="setting__desc">Catches unknown malware by behaviour and structure, at a small false-positive cost.</div>
+                <div class="setting__title">Sensitivity</div>
+                <div class="setting__desc">Stricter catches more, and flags more harmless files by mistake.</div>
               </div>
               <div class="setting__control">
-                <label class="switch"><input type="checkbox" data-config="scanning.heuristics_enabled"><span class="switch__track"></span></label>
+                <select class="select" data-config="scanning.heuristic_threshold" data-config-type="number">
+                  <option value="90">Relaxed</option>
+                  <option value="60">Balanced</option>
+                  <option value="40">Strict</option>
+                </select>
               </div>
             </div>
             <div class="setting">
               <div class="setting__text">
-                <div class="setting__title">YARA rules</div>
-                <div class="setting__desc">Pattern rules for malware families and attacker tooling.</div>
-              </div>
-              <div class="setting__control">
-                <label class="switch"><input type="checkbox" data-config="scanning.yara_enabled"><span class="switch__track"></span></label>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="setting__text">
-                <div class="setting__title">Scan inside archives</div>
-                <div class="setting__desc">Inspect ZIP members without unpacking them to disk.</div>
+                <div class="setting__title">Look inside ZIP files</div>
+                <div class="setting__desc">Checks what is packed in an archive without unpacking it.</div>
               </div>
               <div class="setting__control">
                 <label class="switch"><input type="checkbox" data-config="scanning.scan_archives"><span class="switch__track"></span></label>
@@ -446,42 +441,11 @@
             </div>
             <div class="setting">
               <div class="setting__text">
-                <div class="setting__title">Quarantine threats found by scans</div>
-                <div class="setting__desc">When off, scans only report what they find and leave the files where they are.</div>
+                <div class="setting__title">Move threats to quarantine</div>
+                <div class="setting__desc">Off means scans only tell you what they found.</div>
               </div>
               <div class="setting__control">
                 <label class="switch"><input type="checkbox" data-config="scanning.auto_quarantine"><span class="switch__track"></span></label>
-              </div>
-            </div>
-            <div class="setting">
-              <div class="setting__text">
-                <div class="setting__title">Heuristic sensitivity</div>
-                <div class="setting__desc">Lower is more aggressive. 60 is a balanced default.</div>
-              </div>
-              <div class="setting__control">
-                <input class="input" type="number" min="10" max="200" step="5" data-config="scanning.heuristic_threshold">
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__head"><h2>Performance</h2></div>
-            <div class="setting">
-              <div class="setting__text">
-                <div class="setting__title">Worker threads</div>
-                <div class="setting__desc">0 picks a sensible number based on your CPU.</div>
-              </div>
-              <div class="setting__control">
-                <input class="input" type="number" min="0" max="32" data-config="scanning.worker_threads">
-              </div>
-            </div>
-            <div class="setting">
-              <div class="setting__text">
-                <div class="setting__title">Maximum file size (MB)</div>
-                <div class="setting__desc">Larger files are hashed but not deep-inspected.</div>
-              </div>
-              <div class="setting__control">
-                <input class="input" type="number" min="1" max="8192" data-config="scanning.max_file_size_mb">
               </div>
             </div>
           </div>
@@ -490,17 +454,8 @@
             <div class="card__head"><h2>Updates</h2></div>
             <div class="setting">
               <div class="setting__text">
-                <div class="setting__title">Signature feed URL</div>
-                <div class="setting__desc">A JSON manifest of signature sets. Leave empty to use only the bundled set.</div>
-              </div>
-              <div class="setting__control">
-                <input class="input" type="text" spellcheck="false" placeholder="https://…/manifest.json" data-config="updates.signature_url">
-              </div>
-            </div>
-            <div class="setting">
-              <div class="setting__text">
-                <div class="setting__title">Automatic signature updates</div>
-                <div class="setting__desc">Refresh signatures on a schedule.</div>
+                <div class="setting__title">Keep signatures up to date</div>
+                <div class="setting__desc">Downloads new threat definitions in the background.</div>
               </div>
               <div class="setting__control">
                 <label class="switch"><input type="checkbox" data-config="updates.auto_update_signatures"><span class="switch__track"></span></label>
@@ -508,8 +463,8 @@
             </div>
             <div class="setting">
               <div class="setting__text">
-                <div class="setting__title">Check for program updates</div>
-                <div class="setting__desc">Daily check for outdated software. Installing stays manual.</div>
+                <div class="setting__title">Watch for outdated programs</div>
+                <div class="setting__desc">Checks once a day. Installing stays up to you.</div>
               </div>
               <div class="setting__control">
                 <label class="switch"><input type="checkbox" data-config="updates.programs_auto_check"><span class="switch__track"></span></label>
@@ -518,16 +473,75 @@
           </div>
 
           <div class="card">
-            <div class="card__head"><h2>Quarantine</h2></div>
-            <div class="setting">
-              <div class="setting__text">
-                <div class="setting__title">Retention (days)</div>
-                <div class="setting__desc">Vault entries older than this are deleted automatically.</div>
+            <details class="advanced">
+              <summary class="advanced__summary">
+                <h2>Advanced</h2>
+                <span class="field__hint">Defaults are fine for almost everyone</span>
+              </summary>
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">Quarantine suspicious files too</div>
+                  <div class="setting__desc">Normally only confirmed threats are moved; suspicions are just reported.</div>
+                </div>
+                <div class="setting__control">
+                  <label class="switch"><input type="checkbox" data-config="scanning.quarantine_suspicious"><span class="switch__track"></span></label>
+                </div>
               </div>
-              <div class="setting__control">
-                <input class="input" type="number" min="1" max="3650" data-config="quarantine.retention_days">
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">Behaviour analysis</div>
+                  <div class="setting__desc">Spots unknown malware by how a file is built.</div>
+                </div>
+                <div class="setting__control">
+                  <label class="switch"><input type="checkbox" data-config="scanning.heuristics_enabled"><span class="switch__track"></span></label>
+                </div>
               </div>
-            </div>
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">YARA rules</div>
+                  <div class="setting__desc">Pattern rules for known malware families.</div>
+                </div>
+                <div class="setting__control">
+                  <label class="switch"><input type="checkbox" data-config="scanning.yara_enabled"><span class="switch__track"></span></label>
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">Worker threads</div>
+                  <div class="setting__desc">0 matches your CPU.</div>
+                </div>
+                <div class="setting__control">
+                  <input class="input" type="number" min="0" max="32" data-config="scanning.worker_threads">
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">Largest file to open (MB)</div>
+                  <div class="setting__desc">Bigger files are only checked against known threats.</div>
+                </div>
+                <div class="setting__control">
+                  <input class="input" type="number" min="1" max="8192" data-config="scanning.max_file_size_mb">
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">Keep quarantined files for (days)</div>
+                  <div class="setting__desc">Older entries are deleted for good.</div>
+                </div>
+                <div class="setting__control">
+                  <input class="input" type="number" min="1" max="3650" data-config="quarantine.retention_days">
+                </div>
+              </div>
+              <div class="setting">
+                <div class="setting__text">
+                  <div class="setting__title">Signature feed</div>
+                  <div class="setting__desc">Leave empty to use the built-in set.</div>
+                </div>
+                <div class="setting__control">
+                  <input class="input" type="text" spellcheck="false" placeholder="https://…/manifest.json" data-config="updates.signature_url">
+                </div>
+              </div>
+            </details>
           </div>
 
           <div class="card">

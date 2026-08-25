@@ -278,6 +278,13 @@ class Database:
         row = self.query_one("SELECT COUNT(*) AS n FROM detections WHERE ts >= ?", (since,))
         return int(row["n"]) if row else 0
 
+    def mark_detections_restored(self, path: str) -> None:
+        """Stop showing a restored file as a live threat in the detection list."""
+        self.execute(
+            "UPDATE detections SET handled = 'restored' WHERE path = ? AND handled = 'quarantined'",
+            (path,),
+        )
+
     def mark_detection_handled(self, detection_id: int, handled: str) -> None:
         self.execute("UPDATE detections SET handled = ? WHERE id = ?", (handled, detection_id))
 

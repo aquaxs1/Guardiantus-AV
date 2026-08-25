@@ -93,6 +93,8 @@ class FileScanner:
         self.config = config or get_config()
         self.signatures = signatures or get_signatures()
         self.yara = yara or get_yara()
+        # Resolved once: this is consulted for every file of every scan.
+        self._own_paths = paths.self_paths()
 
     # ------------------------------------------------------------- policies
     def _max_file_size(self) -> int:
@@ -107,16 +109,13 @@ class FileScanner:
         if resolved.suffix.lower() in self.config.excluded_extensions():
             return True
         for excluded in self.config.excluded_paths():
-            if resolved == excluded or excluded in resolved.parents:
+            if _is_within(resolved, excluded):
                 return True
-        # Never scan our own vault -- the payloads there are already contained.
-        try:
-            vault = paths.quarantine_dir().resolve()
-            if resolved == vault or vault in resolved.parents:
-                return True
-        except OSError:
-            pass
-        return False
+        # Never scan ourselves.  The vault holds live payloads, the signature
+        # database is a list of malware strings and the YARA rules spell out
+        # the very patterns they hunt for -- scanning any of it finds
+        # "malware" every single time.
+        return any(_is_within(resolved, own) for own in self._own_paths)
 
     # ---------------------------------------------------------------- entry
     def scan_file(self, path: Path | str, deep: bool = True) -> ScanResult:
@@ -175,6 +174,19 @@ class FileScanner:
                 error=str(exc),
             )
 
+        # A file the user restored from quarantine has been explicitly judged
+        # harmless.  Flagging it again the moment it lands back on disk is how
+        # a restore silently undoes itself.
+        if digests.get("sha256", "") in self.config.trusted_hashes():
+            return ScanResult(
+                path=str(path),
+                verdict=Verdict.CLEAN,
+                sha256=digests.get("sha256", ""),
+                size=size,
+                duration_ms=(time.perf_counter() - started) * 1000,
+                error="allowed by user",
+            )
+
         detections: List[Detection] = self.signatures.match_hashes(digests)
 
         data = b""
@@ -228,11 +240,20 @@ class FileScanner:
     # ------------------------------------------------------------ internals
     def _inspect_buffer(self, data: bytes, path: Path, size: int) -> List[Detection]:
         detections = self.signatures.match_patterns(data)
-        if self.config.get("scanning", "yara_enabled", True):
-            detections.extend(self.yara.scan(data))
-        if self.config.get("scanning", "heuristics_enabled", True):
-            threshold = int(self.config.get("scanning", "heuristic_threshold", 60))
-            detections.extend(heuristics.analyse(data, path=path, file_size=size, threshold=threshold))
+        # Windows API-set forwarder DLLs (api-ms-win-core-memory-l1-1-0.dll and
+        # its several hundred siblings) contain nothing but the names of the
+        # Win32 functions they re-export.  Every behavioural rule there is
+        # matches them by construction, so they are judged on signatures alone;
+        # a real threat wearing one of those names still has to survive the
+        # hash and pattern database.
+        if not heuristics.is_os_runtime_library(path, data):
+            if self.config.get("scanning", "yara_enabled", True):
+                detections.extend(self.yara.scan(data))
+            if self.config.get("scanning", "heuristics_enabled", True):
+                threshold = int(self.config.get("scanning", "heuristic_threshold", 60))
+                detections.extend(
+                    heuristics.analyse(data, path=path, file_size=size, threshold=threshold)
+                )
         return detections
 
     def _scan_archive(self, path: Path) -> List[Detection]:
@@ -319,6 +340,11 @@ class FileScanner:
         return Verdict.SUSPICIOUS
 
 
+def _is_within(path: Path, ancestor: Path) -> bool:
+    """Is ``path`` the same as, or below, ``ancestor``?"""
+    return path == ancestor or ancestor in path.parents
+
+
 def _is_path_traversal(name: str) -> bool:
     normalised = name.replace("\\", "/")
     if normalised.startswith("/") or ".." in Path(normalised).parts:
@@ -330,10 +356,18 @@ def iter_files(
     targets: Iterable[Path],
     follow_symlinks: bool = False,
     skip_dirs: Optional[Iterable[str]] = None,
+    cancel: Optional[threading.Event] = None,
 ) -> Iterator[Path]:
-    """Yield every regular file below ``targets``, pruning noisy directories."""
+    """Yield every regular file below ``targets``, pruning noisy directories.
+
+    ``cancel`` is checked per directory rather than per file: walking a whole
+    disk takes minutes, and a walk that ignores the stop button is a scan the
+    user cannot stop.
+    """
     skip = set(SKIP_DIRECTORIES) | set(skip_dirs or ())
     for target in targets:
+        if cancel is not None and cancel.is_set():
+            return
         target = Path(target)
         if target.is_file():
             yield target
@@ -341,6 +375,8 @@ def iter_files(
         if not target.is_dir():
             continue
         for root, dirnames, filenames in os.walk(target, followlinks=follow_symlinks, onerror=lambda _: None):
+            if cancel is not None and cancel.is_set():
+                return
             root_path = Path(root)
             dirnames[:] = [
                 d
@@ -354,10 +390,15 @@ def iter_files(
                 yield candidate
 
 
-def count_files(targets: Iterable[Path], limit: int = 250_000, follow_symlinks: bool = False) -> int:
+def count_files(
+    targets: Iterable[Path],
+    limit: int = 250_000,
+    follow_symlinks: bool = False,
+    cancel: Optional[threading.Event] = None,
+) -> int:
     """Cheap pre-pass so the UI can show a real progress bar."""
     total = 0
-    for _ in iter_files(targets, follow_symlinks=follow_symlinks):
+    for _ in iter_files(targets, follow_symlinks=follow_symlinks, cancel=cancel):
         total += 1
         if total >= limit:
             break
@@ -414,8 +455,27 @@ class ScanJob:
             self._thread.join(timeout)
 
     def cancel(self) -> None:
-        self._cancel.set()
-        self._pause.set()
+        """Stop the scan, and report it stopped straight away.
+
+        The worker still needs a moment to unwind -- it may be part-way
+        through a large file or a directory walk -- but the user pressed stop,
+        so the scan counts as finished from here on.  Leaving the state at
+        ``running`` until the last thread drains is what made a cancelled scan
+        keep showing up in the dashboard.
+        """
+        with self._lock:
+            if not self.is_running:
+                return
+            self._cancel.set()
+            self._pause.set()  # release a paused worker so it can exit
+            self.progress.state = ScanState.CANCELLED
+            self.progress.message = "Scan stopped"
+            self.progress.current_path = ""
+            if self.progress.finished_at is None:
+                self.progress.finished_at = time.time()
+            snapshot = self.progress.to_dict()
+        self.db.upsert_scan(snapshot)
+        self._emit_progress()
 
     def pause(self) -> None:
         if self.progress.state is ScanState.RUNNING:
@@ -446,13 +506,15 @@ class ScanJob:
         follow_symlinks = bool(self.config.get("scanning", "follow_symlinks", False))
         try:
             if self.progress.scan_type is not ScanType.FILE:
-                self.progress.total_estimate = count_files(self.targets, follow_symlinks=follow_symlinks)
+                self.progress.total_estimate = count_files(
+                    self.targets, follow_symlinks=follow_symlinks, cancel=self._cancel
+                )
             else:
                 self.progress.total_estimate = len(self.targets)
             self._emit_progress()
 
             workers = self._worker_count()
-            files = iter_files(self.targets, follow_symlinks=follow_symlinks)
+            files = iter_files(self.targets, follow_symlinks=follow_symlinks, cancel=self._cancel)
             if workers <= 1:
                 for path in files:
                     if not self._step(path):
@@ -462,7 +524,7 @@ class ScanJob:
 
             if self._cancel.is_set():
                 self.progress.state = ScanState.CANCELLED
-                self.progress.message = "Scan cancelled"
+                self.progress.message = "Scan stopped"
             else:
                 self.progress.state = ScanState.COMPLETED
                 self.progress.message = (
@@ -559,13 +621,28 @@ class ScanJob:
                 pass
 
         total_seen = self.progress.files_scanned + self.progress.files_skipped
-        if total_seen % 200 == 0:
+        if total_seen % 200 == 0 and not self._cancel.is_set():
             self.db.upsert_scan(self.progress.to_dict())
             self._emit_progress()
 
+    def _should_quarantine(self, result: ScanResult) -> bool:
+        """Only move files we are sure about.
+
+        A heuristic-only hit is a guess, and guesses belong in a report rather
+        than in the vault: quarantining one takes away a file the user may well
+        be working with.  Signature and YARA hits identify a known threat and
+        are moved.  ``scanning.quarantine_suspicious`` restores the old
+        behaviour for anyone who wants it.
+        """
+        if not self.auto_quarantine or not self.config.get("quarantine", "enabled", True):
+            return False
+        if result.verdict is Verdict.MALICIOUS:
+            return True
+        return bool(self.config.get("scanning", "quarantine_suspicious", False))
+
     def _handle_threat(self, result: ScanResult) -> None:
         handled = "reported"
-        if self.auto_quarantine and self.config.get("quarantine", "enabled", True):
+        if self._should_quarantine(result):
             try:
                 entry = self.quarantine.quarantine_file(result)
                 result.quarantined = True

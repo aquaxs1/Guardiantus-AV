@@ -63,6 +63,19 @@ function when(timestamp) {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/* `when` reads backwards; a scheduled run is in the future and needs its own
+   phrasing, or "next run" ends up saying "just now" for hours on end. */
+function until(timestamp) {
+  const delta = Number(timestamp) * 1000 - Date.now();
+  if (!timestamp || Number.isNaN(delta)) return "—";
+  if (delta <= 0) return "any moment now";
+  if (delta < 3600_000) return `in ${Math.max(1, Math.round(delta / 60_000))} min`;
+  if (delta < 86_400_000) return `in ${Math.round(delta / 3_600_000)} h`;
+  return new Date(Number(timestamp) * 1000).toLocaleString(undefined, {
+    weekday: "short", hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function clock(timestamp) {
   return new Date(Number(timestamp) * 1000).toLocaleTimeString(undefined, {
     hour: "2-digit", minute: "2-digit", second: "2-digit",
@@ -182,6 +195,8 @@ const state = {
   status: null,
   config: null,
   activeScans: [],
+  // Scans the user has stopped, hidden until the server stops listing them.
+  stoppedScans: new Set(),
   pollTimer: null,
   programCache: null,
 };
@@ -272,8 +287,8 @@ function renderDashboard(data) {
   heroUse.setAttribute("href", `#icon-${HERO_ICON[protection.state] || "shield"}`);
   $("#hero-title").textContent = protection.headline;
   $("#hero-subtitle").textContent = protection.issues.length
-    ? `${protection.issues.length} item(s) need your attention`
-    : "Real-time protection is on and everything is up to date";
+    ? `${protection.issues.length} thing(s) worth a look`
+    : "Protection is on and everything is up to date";
 
   $("#hero-actions").replaceChildren(
     el("button", {
@@ -283,13 +298,13 @@ function renderDashboard(data) {
     el("button", {
       class: "btn",
       onclick: () => setRealtime(!protection.realtime.running),
-    }, icon("shield"), protection.realtime.running ? "Pause protection" : "Turn on protection"),
+    }, icon("shield"), protection.realtime.running ? "Turn off protection" : "Turn on protection"),
   );
 
   $("#stat-realtime").textContent = protection.realtime.running ? "On" : "Off";
   $("#stat-realtime-meta").textContent = protection.realtime.running
     ? `${protection.realtime.backend} · ${number(protection.realtime.events_handled)} events`
-    : "Files are not being checked on access";
+    : "Files are not being checked as they arrive";
 
   $("#stat-signatures").textContent = number(protection.signatures.total);
   $("#stat-signatures-meta").textContent = `v${protection.signatures.version || "—"} · updated ${when(protection.signatures.last_update)}`;
@@ -308,7 +323,7 @@ function renderDashboard(data) {
 
   const issues = $("#issues");
   if (!protection.issues.length) {
-    issues.replaceChildren(emptyState("Nothing needs your attention.", "shield-check"));
+    issues.replaceChildren(emptyState("Nothing needs doing.", "shield-check"));
   } else {
     issues.replaceChildren(...protection.issues.map((issue) => {
       const action = ISSUE_ACTIONS[issue.action];
@@ -330,7 +345,7 @@ async function loadRecentEvents() {
     const { events } = await api("/api/events?limit=8");
     const target = $("#recent-events");
     target.replaceChildren(
-      ...(events.length ? events.map(eventRow) : [emptyState("No activity recorded yet.", "list")]),
+      ...(events.length ? events.map(eventRow) : [emptyState("Nothing yet.", "list")]),
     );
   } catch { /* dashboard degrades gracefully */ }
 }
@@ -348,7 +363,7 @@ async function loadRecentDetections() {
     const { detections } = await api("/api/detections?limit=8");
     const target = $("#recent-detections");
     if (!detections.length) {
-      target.replaceChildren(emptyState("No threats have been detected on this device.", "shield-check"));
+      target.replaceChildren(emptyState("Nothing has been found on this device.", "shield-check"));
       return;
     }
     target.replaceChildren(detectionTable(detections));
@@ -414,7 +429,7 @@ async function startScan(type, targets = null, autoQuarantine = null) {
     if (targets) body.targets = targets;
     if (autoQuarantine !== null) body.auto_quarantine = autoQuarantine;
     const result = await api("/api/scans", { method: "POST", body });
-    toast("Scan started", `${type} scan · ${result.scan_id}`, "ok");
+    toast("Scan started", `${type} scan`, "ok");
     if (state.view !== "scan") showView("scan");
     pollScans();
   } catch (error) {
@@ -456,8 +471,11 @@ function scanCard(progress) {
           : progress.state === "paused"
             ? el("button", { class: "btn btn--sm", text: "Resume", onclick: () => scanControl(progress.scan_id, "resume") })
             : null,
-        el("button", { class: "btn btn--sm btn--danger", onclick: () => cancelScan(progress.scan_id) },
-          icon("stop"), "Stop"),
+        el("button", {
+          class: "btn btn--sm btn--danger",
+          onclick: () => cancelScan(progress.scan_id),
+          title: "Stop this scan",
+        }, icon("stop"), "Stop"),
       ),
     ),
     el("div", { class: `progress ${indeterminate ? "progress--indeterminate" : ""}` }, bar),
@@ -488,22 +506,41 @@ async function scanControl(scanId, action) {
 }
 
 async function cancelScan(scanId) {
+  // Drop the card before the round-trip. The server marks the scan stopped
+  // immediately, but a poll already in flight can still be carrying the old
+  // "running" snapshot, and a card that reappears after "Scan stopped" reads
+  // as the stop having been ignored.
+  state.stoppedScans.add(scanId);
+  renderActiveScans(state.activeScans);
   try {
     await api(`/api/scans/${scanId}`, { method: "DELETE" });
-    toast("Scan cancelled", "", "warn");
-    pollScans();
-  } catch (error) { fail(error); }
+    toast("Scan stopped", "", "warn");
+  } catch (error) {
+    state.stoppedScans.delete(scanId);
+    fail(error);
+  }
+  pollScans();
+}
+
+function renderActiveScans(active) {
+  const live = active.filter((progress) => !state.stoppedScans.has(progress.scan_id));
+  // The same live card appears on the dashboard and on the scan page; each
+  // slot needs its own node, so build the cards twice rather than moving one.
+  $("#live-scan-slot").replaceChildren(...live.map(scanCard));
+  $("#scan-live-slot").replaceChildren(...live.map(scanCard));
+  return live;
 }
 
 async function pollScans() {
   try {
     const { active, history } = await api("/api/scans?limit=25");
     state.activeScans = active;
-
-    // The same live card appears on the dashboard and on the scan page; each
-    // slot needs its own node, so build the cards twice rather than moving one.
-    $("#live-scan-slot").replaceChildren(...active.map(scanCard));
-    $("#scan-live-slot").replaceChildren(...active.map(scanCard));
+    // Once the server agrees a scan is gone, stop holding its id.
+    const stillActive = new Set(active.map((progress) => progress.scan_id));
+    for (const id of state.stoppedScans) {
+      if (!stillActive.has(id)) state.stoppedScans.delete(id);
+    }
+    renderActiveScans(active);
 
     renderScanHistory(history);
 
@@ -521,10 +558,20 @@ async function pollScans() {
   }
 }
 
+/* The state values are the engine's vocabulary; these are the user's. */
+const SCAN_STATE_LABELS = {
+  completed: "done",
+  cancelled: "stopped",
+  failed: "failed",
+  running: "running",
+  paused: "paused",
+  pending: "starting",
+};
+
 function renderScanHistory(history) {
   const target = $("#scan-history");
   if (!history || !history.length) {
-    target.replaceChildren(emptyState("No scans have run yet.", "scan"));
+    target.replaceChildren(emptyState("No scans yet.", "scan"));
     return;
   }
   target.replaceChildren(el("table", { class: "table" },
@@ -542,7 +589,7 @@ function renderScanHistory(history) {
         el("td", {}, scan.threats_found
           ? el("span", { class: "badge badge--risk", text: number(scan.threats_found) })
           : el("span", { class: "badge badge--ok", text: "0" })),
-        el("td", {}, el("span", { class: "badge", text: scan.state })),
+        el("td", {}, el("span", { class: "badge", text: SCAN_STATE_LABELS[scan.state] || scan.state })),
       );
     })),
   ));
@@ -576,20 +623,17 @@ async function loadProtection() {
     $("#realtime-action").value = config.realtime.action;
     $("#realtime-desc").textContent = status.watchdog_available
       ? "Scans files the moment they are created or changed."
-      : "Running in polling mode. Install the optional 'watchdog' package for instant, event-driven detection.";
+      : "Checking every few seconds. Install the optional 'watchdog' package to react instantly instead.";
 
     $("#watch-paths").value = (config.realtime.watch_paths || []).join("\n");
     $("#excluded-paths").value = (config.scanning.excluded_paths || []).join("\n");
     $("#excluded-extensions").value = (config.scanning.excluded_extensions || []).join("\n");
 
     const rows = [
-      ["Status", status.running ? "Running" : "Stopped"],
-      ["Backend", status.backend],
-      ["Watched folders", status.watch_paths.length ? status.watch_paths.join(", ") : "—"],
-      ["Uptime", status.running ? duration(status.uptime) : "—"],
-      ["Events handled", number(status.events_handled)],
-      ["Threats blocked", number(status.threats_blocked)],
-      ["Queue depth", number(status.queued)],
+      ["Status", status.running ? `On for ${duration(status.uptime)}` : "Off"],
+      ["Watching", status.watch_paths.length ? status.watch_paths.join(", ") : "—"],
+      ["Files checked", number(status.events_handled)],
+      ["Threats stopped", number(status.threats_blocked)],
       ["Last file seen", status.last_event.path ? baseName(status.last_event.path) : "—"],
     ];
     $("#realtime-stats").replaceChildren(...rows.flatMap(([key, value]) => [
@@ -627,7 +671,7 @@ async function loadQuarantine() {
     const { entries } = await api("/api/quarantine");
     const target = $("#quarantine-list");
     if (!entries.length) {
-      target.replaceChildren(emptyState("Quarantine is empty. Nothing has needed containment.", "lock"));
+      target.replaceChildren(emptyState("Quarantine is empty.", "lock"));
       return;
     }
     target.replaceChildren(el("table", { class: "table" },
@@ -647,11 +691,12 @@ async function loadQuarantine() {
         el("td", {}, el("div", { class: "row" },
           el("button", {
             class: "btn btn--sm",
-            title: "Restore to the original location",
+            title: "Put the file back and stop flagging it",
             onclick: () => confirmAction(
-              "Restore this file?",
-              `${entry.threat_name} will be written back to ${entry.original_path}. Only do this if you are certain the detection was wrong.`,
-              "Restore",
+              "Put this file back?",
+              `It goes back to ${entry.original_path}, and Guardiantus will not flag it again. `
+              + "Only do this if you are sure it is safe.",
+              "Put it back",
               () => restoreQuarantine(entry.entry_id),
             ),
           }, icon("restore"), "Restore"),
@@ -659,8 +704,8 @@ async function loadQuarantine() {
             class: "btn btn--sm btn--danger",
             title: "Delete permanently",
             onclick: () => confirmAction(
-              "Delete permanently?",
-              "The quarantined copy is overwritten and removed. This cannot be undone.",
+              "Delete this for good?",
+              "The file is overwritten and removed. This cannot be undone.",
               "Delete",
               () => deleteQuarantine(entry.entry_id),
             ),
@@ -674,7 +719,7 @@ async function loadQuarantine() {
 async function restoreQuarantine(entryId) {
   try {
     const result = await api(`/api/quarantine/${entryId}/restore`, { method: "POST" });
-    toast("File restored", result.path, "warn");
+    toast("File put back", `${result.path} — it will not be flagged again`, "warn");
     loadQuarantine(); refreshDashboard();
   } catch (error) { fail(error); }
 }
@@ -689,13 +734,13 @@ async function deleteQuarantine(entryId) {
 
 $("#refresh-quarantine").addEventListener("click", loadQuarantine);
 $("#empty-quarantine").addEventListener("click", () => confirmAction(
-  "Empty the vault?",
-  "Every quarantined file is overwritten and deleted for good.",
-  "Empty vault",
+  "Delete everything in quarantine?",
+  "Every file in there is overwritten and gone for good.",
+  "Delete all",
   async () => {
     try {
       const result = await api("/api/quarantine/empty", { method: "POST" });
-      toast("Vault emptied", `${result.deleted} item(s) deleted`, "ok");
+      toast("Quarantine emptied", `${result.deleted} file(s) deleted`, "ok");
       loadQuarantine(); refreshDashboard();
     } catch (error) { fail(error); }
   },
@@ -704,9 +749,9 @@ $("#empty-quarantine").addEventListener("click", () => confirmAction(
 /* ---------------------------------------------------------------- updates */
 
 async function loadUpdates() {
-  $("#signature-info").replaceChildren(loadingState("Reading the signature database…"));
-  $("#program-list").replaceChildren(loadingState("Asking your package managers what is outdated…"));
-  $("#manager-list").replaceChildren(loadingState("Detecting package managers…"));
+  $("#signature-info").replaceChildren(loadingState("Reading the definitions…"));
+  $("#program-list").replaceChildren(loadingState("Checking your programs…"));
+  $("#manager-list").replaceChildren(loadingState("Looking for package managers…"));
   try {
     const signatures = await api("/api/updates/signatures");
     renderSignatureInfo(signatures);
@@ -721,14 +766,11 @@ async function loadUpdates() {
 
 function renderSignatureInfo(info) {
   const rows = [
-    ["Signatures loaded", number(info.total)],
-    ["Hash signatures", number(info.hash_signatures)],
-    ["Pattern signatures", number(info.pattern_signatures)],
-    ["Database version", info.version || "—"],
-    ["Signature sets", (info.sets || []).map((s) => s.name).join(", ") || "—"],
-    ["Feed URL", info.feed_url || "not configured"],
-    ["Last check", when(info.last_check)],
-    ["Last update", when(info.last_update)],
+    ["Definitions", number(info.total)],
+    ["Version", info.version || "—"],
+    ["Last checked", when(info.last_check)],
+    ["Last updated", when(info.last_update)],
+    ["Source", info.feed_url || "built-in set only"],
   ];
   if (info.check) rows.push(["Available", info.check.message || "—"]);
   $("#signature-info").replaceChildren(...rows.flatMap(([key, value]) => [
@@ -738,9 +780,9 @@ function renderSignatureInfo(info) {
 
 async function updateSignatures() {
   try {
-    toast("Updating signatures…", "", "ok");
+    toast("Updating definitions…", "", "ok");
     const result = await api("/api/updates/signatures", { method: "POST" });
-    toast("Signature update", result.message || "Done", result.installed ? "ok" : "warn");
+    toast("Definitions updated", result.message || "Done", result.installed ? "ok" : "warn");
     loadUpdates(); refreshDashboard();
   } catch (error) { fail(error); }
 }
@@ -750,7 +792,7 @@ $("#check-signatures").addEventListener("click", async () => {
   try {
     const info = await api("/api/updates/signatures?check=1");
     renderSignatureInfo(info);
-    toast("Signature check", info.check?.message || "Checked", "ok");
+    toast("Definitions checked", info.check?.message || "Up to date", "ok");
   } catch (error) { fail(error); }
 });
 
@@ -764,8 +806,8 @@ function renderPrograms(report) {
   if (!programs.length) {
     target.replaceChildren(emptyState(
       report.managers_probed?.length
-        ? "Every installed program is up to date."
-        : "No supported package manager was found on this system.",
+        ? "Everything is up to date."
+        : "No package manager was found on this system.",
       "check",
     ));
     return;
@@ -810,14 +852,14 @@ async function upgradeProgram(program, button) {
 function managerHint(manager) {
   if (!manager.available) return "Not present on this system.";
   return manager.needs_privileges
-    ? "Upgrades need administrative rights — run Guardiantus with elevated permissions to apply them."
+    ? "Updates need administrator rights. Start Guardiantus as an administrator to install them."
     : "Ready to use.";
 }
 
 function renderManagers(managers) {
   const target = $("#manager-list");
   if (!managers.length) {
-    target.replaceChildren(emptyState("No package managers detected.", "download"));
+    target.replaceChildren(emptyState("No package manager found.", "download"));
     return;
   }
   target.replaceChildren(...managers.map((manager) => el("div", { class: "setting" },
@@ -837,7 +879,7 @@ function renderManagers(managers) {
 async function checkPrograms() {
   const button = $("#check-programs");
   button.disabled = true;
-  $("#program-list").replaceChildren(loadingState("Asking your package managers what is outdated…"));
+  $("#program-list").replaceChildren(loadingState("Checking your programs…"));
   try {
     const report = await api("/api/updates/programs?refresh=1");
     state.programCache = report;
@@ -855,28 +897,54 @@ $("#check-programs").addEventListener("click", checkPrograms);
 
 /* --------------------------------------------------------------- schedule */
 
+/* Cron is precise and unreadable. Offer the handful of rhythms anyone
+   actually wants, and fall back to showing the raw expression when a task
+   is set to something these presets do not cover. */
+const SCHEDULE_PRESETS = [
+  { label: "Every 6 hours", cron: "0 */6 * * *" },
+  { label: "Daily", cron: "0 12 * * *" },
+  { label: "Nightly", cron: "0 3 * * *" },
+  { label: "Weekly", cron: "0 3 * * 0" },
+];
+
+function scheduleControl(task) {
+  const known = SCHEDULE_PRESETS.some((preset) => preset.cron === task.cron);
+  const select = el("select", {
+    class: "select select--compact",
+    onchange: (event) => saveCron(task.name, event.target.value),
+  },
+    ...SCHEDULE_PRESETS.map((preset) => el("option", { value: preset.cron, text: preset.label })),
+    known ? null : el("option", { value: task.cron, text: `Custom (${task.cron})` }),
+  );
+  select.value = task.cron;
+  return select;
+}
+
+function taskTitle(task) {
+  return { "quick-scan": "Quick scan", "full-scan": "Full scan",
+    "signature-update": "Update threat definitions",
+    "program-update-check": "Check installed programs" }[task.name] || task.name;
+}
+
 async function loadSchedule() {
   try {
     const { tasks } = await api("/api/schedule");
     const target = $("#schedule-list");
     if (!tasks.length) {
-      target.replaceChildren(emptyState("No scheduled tasks are registered.", "clock"));
+      target.replaceChildren(emptyState("Nothing is scheduled.", "clock"));
       return;
     }
     target.replaceChildren(...tasks.map((task) => el("div", { class: "setting" },
       el("div", { class: "setting__text" },
-        el("div", { class: "setting__title", text: task.name }),
-        el("div", { class: "setting__desc", text: task.description || "" }),
+        el("div", { class: "setting__title", text: taskTitle(task) }),
         el("div", { class: "field__hint" },
-          `next run ${task.enabled ? when(task.next_run) : "—"} · last run ${when(task.last_run)}`,
-          task.last_error ? ` · error: ${task.last_error}` : "",
+          task.enabled ? `runs ${until(task.next_run)}` : "off",
+          task.last_run ? ` · last ran ${when(task.last_run)}` : "",
+          task.last_error ? ` · failed: ${task.last_error}` : "",
         ),
       ),
       el("div", { class: "setting__control" }, el("div", { class: "row" },
-        el("input", {
-          class: "input mono input--cron", value: task.cron,
-          onchange: (event) => saveCron(task.name, event.target.value),
-        }),
+        scheduleControl(task),
         el("button", { class: "btn btn--sm", text: "Run now", onclick: () => runTask(task.name) }),
         el("label", { class: "switch" },
           el("input", {
@@ -893,7 +961,7 @@ async function loadSchedule() {
 async function saveCron(name, cron) {
   try {
     await api(`/api/schedule/${name}`, { method: "POST", body: { cron } });
-    toast("Schedule updated", `${name} → ${cron}`, "ok");
+    toast("Schedule updated", "", "ok");
     loadSchedule();
   } catch (error) { fail(error); loadSchedule(); }
 }
@@ -944,6 +1012,12 @@ async function loadSettings() {
       const value = config[section]?.[key];
       if (input.type === "checkbox") input.checked = Boolean(value);
       else input.value = value ?? "";
+      // A sensitivity that is not one of the three presets (set by hand in
+      // config.json, or by an older build) would leave the select blank.
+      if (input.tagName === "SELECT" && input.selectedIndex < 0) {
+        input.append(el("option", { value: String(value), text: `Custom (${value})` }));
+        input.value = String(value);
+      }
     });
 
     const engine = system.engine;
@@ -980,9 +1054,10 @@ document.addEventListener("change", (event) => {
   const [section, key] = input.dataset.config.split(".");
   let value;
   if (input.type === "checkbox") value = input.checked;
-  else if (input.type === "number") value = Number(input.value);
+  // A <select> reports type "select-one", so numeric ones say so explicitly.
+  else if (input.type === "number" || input.dataset.configType === "number") value = Number(input.value);
   else value = input.value;
-  saveConfig({ [section]: { [key]: value } }, "Setting saved");
+  saveConfig({ [section]: { [key]: value } }, "Saved");
 });
 
 /* ------------------------------------------------------------------- boot */

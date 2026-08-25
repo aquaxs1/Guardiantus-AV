@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .. import paths
+from ..config import get_config
 from .db import Database, get_db
 from .models import QuarantineEntry, ScanResult, Severity
 
@@ -61,9 +62,28 @@ class Quarantine:
         return key
 
     def _transform(self, data: bytes) -> bytes:
+        """XOR the payload against the repeating vault key.
+
+        Done a chunk at a time through big integers rather than a per-byte
+        generator: the same stream, roughly a hundred times faster.  A 50 MB
+        sample used to take the better part of a minute to move or restore,
+        which reads exactly like a broken button.  Chunks are a whole number
+        of key lengths so the keystream stays aligned across them, which keeps
+        the result byte-identical to vault entries written by older versions.
+        """
+        if not data:
+            return b""
         key = self._key
         key_len = len(key)
-        return bytes(byte ^ key[index % key_len] for index, byte in enumerate(data))
+        chunk_size = key_len * 16384  # 1 MiB, and a multiple of the key length
+        out = bytearray()
+        for start in range(0, len(data), chunk_size):
+            block = data[start:start + chunk_size]
+            mask = (key * (len(block) // key_len + 1))[:len(block)]
+            out += (
+                int.from_bytes(block, "big") ^ int.from_bytes(mask, "big")
+            ).to_bytes(len(block), "big")
+        return bytes(out)
 
     # ----------------------------------------------------------- operations
     def quarantine_file(self, result: ScanResult) -> QuarantineEntry:
@@ -118,44 +138,78 @@ class Quarantine:
         self.enforce_limits()
         return entry
 
-    def restore(self, entry_id: str, destination: Optional[Path] = None) -> Path:
-        """Put a quarantined file back, byte-for-byte."""
+    def restore(
+        self,
+        entry_id: str,
+        destination: Optional[Path] = None,
+        trust: bool = True,
+    ) -> Path:
+        """Put a quarantined file back, byte-for-byte.
+
+        ``trust`` records the file's digest on the allow-list.  Restoring is
+        the user saying "this was a false alarm", and without that record the
+        next scan -- or real-time protection, within seconds, if the file
+        lands in a watched folder -- detects the very same bytes and puts them
+        straight back in the vault.  From the outside that looks like a
+        restore button that does nothing.
+        """
         record = self.db.get_quarantine(entry_id)
         if not record:
             raise QuarantineError(f"unknown quarantine entry: {entry_id}")
         if record["deleted"]:
-            raise QuarantineError("entry was permanently deleted")
-        if record["restored"]:
-            raise QuarantineError("entry was already restored")
+            raise QuarantineError("this item was permanently deleted")
 
         stored = self.dir / record["stored_name"]
         if not stored.is_file():
-            raise QuarantineError("vault payload is missing")
+            if record["restored"]:
+                raise QuarantineError("this item has already been restored")
+            raise QuarantineError("the vault copy of this file is missing")
 
         target = Path(destination) if destination else Path(record["original_path"])
-        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise QuarantineError(f"cannot recreate {target.parent}: {exc}") from exc
 
-        blob = stored.read_bytes()
+        try:
+            blob = stored.read_bytes()
+        except OSError as exc:
+            raise QuarantineError(f"cannot read the vault copy: {exc}") from exc
         if blob.startswith(MAGIC):
             blob = blob[len(MAGIC):]
         payload = self._transform(blob)
 
         try:
-            target.write_bytes(payload)
-            if record.get("original_mode"):
-                target.chmod(int(record["original_mode"]))
+            _write_restored(target, payload)
         except OSError as exc:
-            raise QuarantineError(f"cannot restore to {target}: {exc}") from exc
+            raise QuarantineError(f"cannot write {target}: {exc}") from exc
 
-        stored.unlink(missing_ok=True)
+        # Permissions are a nicety; a file that is back on disk has been
+        # restored even if we could not re-apply its mode.  Windows in
+        # particular turns a read-only mode into a file we then cannot
+        # overwrite on a second attempt, so it is skipped there entirely.
+        if record.get("original_mode") and os.name != "nt":
+            try:
+                target.chmod(int(record["original_mode"]))
+            except OSError:
+                pass
+
+        if trust and record.get("sha256"):
+            get_config().trust_hash(str(record["sha256"]))
+
+        # Book-keeping before the vault copy goes: if anything below fails, the
+        # user can try again rather than being left with an entry whose
+        # payload has already been thrown away.
         with self._lock:
             self.db.update_quarantine_flags(entry_id, restored=True, deleted=False)
+            self.db.mark_detections_restored(str(record["original_path"]))
             self.db.add_event(
                 "info",
                 "quarantine",
                 f"Restored {target.name}",
-                {"path": str(target), "entry_id": entry_id},
+                {"path": str(target), "entry_id": entry_id, "allowed": bool(trust)},
             )
+        stored.unlink(missing_ok=True)
         return target
 
     def delete(self, entry_id: str) -> None:
@@ -188,8 +242,17 @@ class Quarantine:
     def list_entries(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         return self.db.list_quarantine(include_inactive=include_inactive)
 
-    def enforce_limits(self, max_entries: int = 1000, retention_days: int = 90) -> int:
+    def enforce_limits(
+        self,
+        max_entries: Optional[int] = None,
+        retention_days: Optional[int] = None,
+    ) -> int:
         """Trim the vault by age and count. Returns entries dropped."""
+        config = get_config()
+        if max_entries is None:
+            max_entries = int(config.get("quarantine", "max_entries", 1000))
+        if retention_days is None:
+            retention_days = int(config.get("quarantine", "retention_days", 90))
         entries = self.db.list_quarantine()
         dropped = 0
         cutoff = time.time() - retention_days * 86400
@@ -221,6 +284,16 @@ class Quarantine:
                 for severity in Severity
             },
         }
+
+
+def _write_restored(target: Path, payload: bytes) -> None:
+    """Write the payload back, clearing a read-only flag left by an earlier try."""
+    if target.exists():
+        try:
+            target.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            pass
+    target.write_bytes(payload)
 
 
 def _shred(path: Path, passes: int = 1) -> None:

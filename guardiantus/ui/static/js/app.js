@@ -720,10 +720,14 @@ $("#save-exclusions").addEventListener("click", async () => {
 
 async function loadQuarantine() {
   try {
-    const { entries } = await api("/api/quarantine");
+    // The vault only lists what is still in it. Anything restored or deleted
+    // is still worth being able to look up -- "did I put that file back?"
+    const history = $("#quarantine-history").checked;
+    const { entries } = await api(`/api/quarantine${history ? "?all=1" : ""}`);
     const target = $("#quarantine-list");
     if (!entries.length) {
-      target.replaceChildren(emptyState("Quarantine is empty.", "lock"));
+      target.replaceChildren(emptyState(
+        history ? "Nothing has ever been quarantined." : "Quarantine is empty.", "lock"));
       return;
     }
     target.replaceChildren(el("table", { class: "table" },
@@ -740,32 +744,41 @@ async function loadQuarantine() {
         el("td", {}, severityBadge(entry.severity)),
         el("td", { text: bytes(entry.size) }),
         el("td", { text: when(entry.quarantined_at) }),
-        el("td", {}, el("div", { class: "row" },
-          el("button", {
-            class: "btn btn--sm",
-            title: "Put the file back and stop flagging it",
-            onclick: () => confirmAction(
-              "Put this file back?",
-              `It goes back to ${entry.original_path}, and Guardiantus will not flag it again. `
-              + "Only do this if you are sure it is safe.",
-              "Put it back",
-              () => restoreQuarantine(entry.entry_id),
-            ),
-          }, icon("restore"), "Restore"),
-          el("button", {
-            class: "btn btn--sm btn--danger",
-            title: "Delete permanently",
-            onclick: () => confirmAction(
-              "Delete this for good?",
-              "The file is overwritten and removed. This cannot be undone.",
-              "Delete",
-              () => deleteQuarantine(entry.entry_id),
-            ),
-          }, icon("trash")),
-        )),
+        el("td", {}, quarantineActions(entry)),
       ))),
     ));
   } catch (error) { fail(error); }
+}
+
+/* Entries that have already been restored or deleted are history: they show
+   what happened to them instead of offering to do it again. */
+function quarantineActions(entry) {
+  if (entry.restored || entry.deleted) {
+    return el("span", { class: "badge", text: entry.restored ? "put back" : "deleted" });
+  }
+  return el("div", { class: "row" },
+    el("button", {
+      class: "btn btn--sm",
+      title: "Put the file back and stop flagging it",
+      onclick: () => confirmAction(
+        "Put this file back?",
+        `It goes back to ${entry.original_path}, and Guardiantus will not flag it again. `
+        + "Only do this if you are sure it is safe.",
+        "Put it back",
+        () => restoreQuarantine(entry.entry_id),
+      ),
+    }, icon("restore"), "Restore"),
+    el("button", {
+      class: "btn btn--sm btn--danger",
+      title: "Delete permanently",
+      onclick: () => confirmAction(
+        "Delete this for good?",
+        "The file is overwritten and removed. This cannot be undone.",
+        "Delete",
+        () => deleteQuarantine(entry.entry_id),
+      ),
+    }, icon("trash")),
+  );
 }
 
 async function restoreQuarantine(entryId) {
@@ -785,6 +798,7 @@ async function deleteQuarantine(entryId) {
 }
 
 $("#refresh-quarantine").addEventListener("click", loadQuarantine);
+$("#quarantine-history").addEventListener("change", loadQuarantine);
 $("#empty-quarantine").addEventListener("click", () => confirmAction(
   "Delete everything in quarantine?",
   "Every file in there is overwritten and gone for good.",

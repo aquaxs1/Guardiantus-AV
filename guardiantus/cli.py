@@ -359,10 +359,10 @@ def cmd_allow(app: Application, args: argparse.Namespace) -> int:
         if not entries:
             print(paint("  Nothing is allowed. Restoring a file adds it here.", "grey"))
             return 0
-        print(f"  {'SHA-256':<18}  {'LAST SEEN':<12}  FILE")
+        print(f"  {'SHA-256':<18}  {'LAST SEEN':<16}  FILE")
         for entry in entries:
             seen = human_time(entry["last_seen"]) if entry["last_seen"] else "—"
-            print(f"  {entry['sha256'][:16]}…  {seen:<12}  {entry['path'] or '(unknown)'}")
+            print(f"  {entry['sha256'][:16]}…  {seen:<16}  {entry['path'] or '(unknown)'}")
         return 0
 
     if not args.sha256:
@@ -493,6 +493,59 @@ def cmd_events(app: Application, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_detections(app: Application, args: argparse.Namespace) -> int:
+    """List what was found, and settle anything still waiting on a decision."""
+    if args.action == "list":
+        detections = app.detections(limit=args.limit)
+        _emit({"detections": detections}, args.json)
+        if args.json:
+            return 0
+        if not detections:
+            print(paint("  Nothing has been detected on this device.", "grey"))
+            return 0
+        print(f"  {'ID':>5}  {'WHEN':<16}  {'STATUS':<14}  THREAT")
+        for detection in detections:
+            status = _HANDLED_LABELS.get(detection["handled"], detection["handled"])
+            colour = "yellow" if detection["handled"] == "reported" else "grey"
+            print(f"  {detection['id']:>5}  {human_time(detection['ts']):<16}  "
+                  f"{paint(f'{status:<14}', colour)}  {detection['threat_name'] or 'Unknown'}")
+            print(f"         {paint(detection['path'], 'grey')}")
+        waiting = sum(1 for d in detections if d["handled"] == "reported")
+        if waiting:
+            print(paint(
+                f"\n  {waiting} left in place. "
+                "Use 'detections quarantine ID' or 'detections allow ID'.", "grey"))
+        return 0
+
+    if args.detection_id is None:
+        print(paint("error: a detection ID is required", "red"), file=sys.stderr)
+        return 2
+    try:
+        result = app.act_on_detection(args.detection_id, args.action)
+    except (LookupError, FileNotFoundError, ValueError, QuarantineError) as exc:
+        print(paint(f"error: {exc}", "red"), file=sys.stderr)
+        return 2
+
+    _emit(result, args.json)
+    if not args.json:
+        if args.action == "allow":
+            print(paint(f"  Allowed {result['path']}", "green"))
+            print(paint("  It will not be flagged again.", "grey"))
+        else:
+            print(paint(f"  Quarantined {result['path']}", "yellow"))
+    return 0
+
+
+#: How the engine's `handled` values read to a person.
+_HANDLED_LABELS = {
+    "reported": "left in place",
+    "quarantined": "quarantined",
+    "restored": "put back",
+    "allowed": "allowed",
+    "none": "nothing done",
+}
+
+
 def cmd_config(app: Application, args: argparse.Namespace) -> int:
     if args.action == "show":
         print(json.dumps(app.config.data, indent=2, sort_keys=True))
@@ -604,6 +657,13 @@ def build_parser() -> argparse.ArgumentParser:
     quarantine.add_argument("entry_id", nargs="?", metavar="ID")
     quarantine.add_argument("--all", action="store_true", help="include restored/deleted entries")
     quarantine.set_defaults(func=cmd_quarantine)
+
+    detections = sub.add_parser("detections", help="list findings and settle the open ones")
+    detections.add_argument("action", nargs="?", default="list",
+                            choices=["list", "quarantine", "allow"])
+    detections.add_argument("detection_id", nargs="?", type=int, metavar="ID")
+    detections.add_argument("--limit", type=int, default=25)
+    detections.set_defaults(func=cmd_detections)
 
     allow = sub.add_parser("allow", help="manage files you have vouched for")
     allow.add_argument("action", choices=["list", "remove"])

@@ -18,6 +18,9 @@ from .. import paths
 
 SCHEMA_VERSION = 1
 
+#: Conservative cap on bound parameters per statement -- see describe_digests.
+_MAX_SQL_PARAMS = 500
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -293,17 +296,22 @@ class Database:
         wanted = [d for d in digests if d]
         if not wanted:
             return {}
-        placeholders = ",".join("?" for _ in wanted)
-        rows = self.query(
-            f"SELECT sha256, path, ts FROM detections WHERE sha256 IN ({placeholders}) "
-            "ORDER BY ts DESC",
-            wanted,
-        )
-        rows += self.query(
-            f"SELECT sha256, original_path AS path, quarantined_at AS ts FROM quarantine "
-            f"WHERE sha256 IN ({placeholders}) ORDER BY quarantined_at DESC",
-            wanted,
-        )
+
+        rows: List[Dict[str, Any]] = []
+        # Bound the IN clause: SQLite before 3.32 refuses more than 999
+        # parameters, and the allow-list is allowed to hold a thousand.
+        for start in range(0, len(wanted), _MAX_SQL_PARAMS):
+            batch = wanted[start:start + _MAX_SQL_PARAMS]
+            placeholders = ",".join("?" for _ in batch)
+            rows += self.query(
+                f"SELECT sha256, path, ts FROM detections WHERE sha256 IN ({placeholders})",
+                batch,
+            )
+            rows += self.query(
+                "SELECT sha256, original_path AS path, quarantined_at AS ts FROM quarantine "
+                f"WHERE sha256 IN ({placeholders})",
+                batch,
+            )
         seen: Dict[str, Dict[str, Any]] = {}
         for row in rows:
             digest = str(row["sha256"]).lower()

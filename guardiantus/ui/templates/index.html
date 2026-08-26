@@ -332,6 +332,11 @@
         <div class="page-head">
           <div><h1>Quarantine</h1><p>Files kept where they cannot run. You can put any of them back.</p></div>
           <div class="row">
+            <label class="switch">
+              <input type="checkbox" id="quarantine-history">
+              <span class="switch__track"></span>
+              <span class="field__hint">Show past items</span>
+            </label>
             <button class="btn btn--ghost btn--sm" id="refresh-quarantine"><svg><use href="#icon-refresh"></use></svg>Refresh</button>
             <button class="btn btn--danger btn--sm" id="empty-quarantine"><svg><use href="#icon-trash"></use></svg>Delete all</button>
           </div>

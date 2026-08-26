@@ -515,6 +515,11 @@ class ScanJob:
 
     # ---------------------------------------------------------------- work
     def run(self) -> ScanProgress:
+        # Stopping a scan between start() and here would otherwise be undone
+        # by this line, leaving the dashboard showing it as running until the
+        # (immediately empty) walk finishes.
+        if self._cancel.is_set():
+            return self.progress
         self.progress.state = ScanState.RUNNING
         self.progress.started_at = time.time()
         self.db.upsert_scan(self.progress.to_dict())

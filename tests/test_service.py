@@ -500,6 +500,41 @@ def test_cli_scan_command(samples, capsys):
     assert payload["threats_found"] >= 4
 
 
+def test_cli_can_settle_a_reported_detection(tmp_path, capsys):
+    """The terminal has to reach the same decisions the dashboard offers."""
+    from guardiantus.cli import main
+
+    (tmp_path / "READ_ME.txt").write_text(
+        "All your files are encrypted. Send bitcoin to our wallet.\n"
+        "Your decryption key is safe with us.\n"
+    )
+    main(["--json", "scan", str(tmp_path), "--quarantine"])
+    capsys.readouterr()
+
+    assert main(["--json", "detections"]) == 0
+    reported = [
+        d for d in json.loads(capsys.readouterr().out)["detections"]
+        if d["handled"] == "reported"
+    ]
+    assert reported, "a suspicion should be reported rather than moved"
+
+    assert main(["--json", "detections", "allow", str(reported[0]["id"])]) == 0
+    assert json.loads(capsys.readouterr().out)["allowed"]
+
+    assert main(["--json", "allow", "list"]) == 0
+    assert json.loads(capsys.readouterr().out)["entries"], "allowing must show up on the list"
+
+    assert main(["--json", "scan", str(tmp_path)]) == 0, "an allowed file must not be flagged"
+    capsys.readouterr()
+
+
+def test_cli_rejects_an_unknown_detection(capsys):
+    from guardiantus.cli import main
+
+    assert main(["detections", "quarantine", "999999"]) == 2
+    assert "unknown detection" in capsys.readouterr().err
+
+
 def test_cli_status_and_info(capsys):
     from guardiantus.cli import main
 

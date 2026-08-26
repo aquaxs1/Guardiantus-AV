@@ -167,6 +167,19 @@ class Application:
                 }
             )
 
+        # Suspicions are reported and left on disk, which is only the right
+        # call if the user is told they are waiting for a decision.
+        unresolved = self.db.count_unresolved_detections()
+        if unresolved:
+            issues.append(
+                {
+                    "id": "detections-unresolved",
+                    "severity": "medium",
+                    "title": f"{unresolved} file(s) were left in place for you to decide on",
+                    "action": "review_detections",
+                }
+            )
+
         active_quarantine = len(self.quarantine.list_entries())
         if active_quarantine:
             issues.append(
@@ -324,7 +337,9 @@ class Application:
         # Re-scan rather than trusting the stored payload: the file may have
         # changed since it was reported, and the vault entry should describe
         # what is actually being put in it.
-        entry = self.quarantine.quarantine_file(self.scanner.scan_file(path))
+        entry = self.quarantine.quarantine_file(
+            self.scanner.scan_file(path), threat_name=str(record.get("threat_name") or "")
+        )
         self.db.mark_detection_handled(detection_id, "quarantined")
         return {"quarantined": True, "entry_id": entry.entry_id, "path": str(path)}
 

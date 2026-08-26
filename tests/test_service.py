@@ -285,6 +285,33 @@ def test_a_reported_detection_can_be_allowed(app, tmp_path):
     assert job.progress.threats_found == 0, "an allowed file must stop being flagged"
 
 
+def test_the_dashboard_asks_about_files_left_in_place(app, tmp_path):
+    """Reporting instead of quarantining only works if the user is told."""
+    before = {issue["id"] for issue in app.protection_status()["issues"]}
+    assert "detections-unresolved" not in before
+
+    _, detection = _reported_detection(app, tmp_path)
+    issues = {i["id"]: i for i in app.protection_status()["issues"]}
+    assert "detections-unresolved" in issues
+    assert issues["detections-unresolved"]["action"] == "review_detections"
+
+    _act(app, detection["id"], "allow")
+    after = {issue["id"] for issue in app.protection_status()["issues"]}
+    assert "detections-unresolved" not in after, "deciding must clear the prompt"
+
+
+def test_quarantining_an_allowed_file_keeps_its_name(app, tmp_path):
+    """The allow-list short-circuits the re-scan, so the name has to survive."""
+    _, detection = _reported_detection(app, tmp_path)
+    _act(app, detection["id"], "allow")
+    app.db.mark_detection_handled(detection["id"], "reported")
+
+    _act(app, detection["id"], "quarantine")
+    entry = app.quarantine.list_entries()[0]
+    assert entry["threat_name"] == detection["threat_name"]
+    assert entry["threat_name"] != "Unknown"
+
+
 def test_acting_on_a_detection_reports_real_problems(app, tmp_path):
     _, detection = _reported_detection(app, tmp_path)
 

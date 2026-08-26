@@ -319,6 +319,13 @@ class Database:
                 seen[digest] = {"path": row["path"], "ts": row["ts"]}
         return seen
 
+    def count_unresolved_detections(self) -> int:
+        """Threats that were reported and are still sitting where they were."""
+        row = self.query_one(
+            "SELECT COUNT(*) AS n FROM detections WHERE handled = 'reported'"
+        )
+        return int(row["n"]) if row else 0
+
     def mark_detections_restored(self, path: str) -> None:
         """Stop showing a restored file as a live threat in the detection list."""
         self.execute(

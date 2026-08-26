@@ -86,8 +86,16 @@ class Quarantine:
         return bytes(out)
 
     # ----------------------------------------------------------- operations
-    def quarantine_file(self, result: ScanResult) -> QuarantineEntry:
-        """Move the file behind ``result.path`` into the vault."""
+    def quarantine_file(
+        self, result: ScanResult, threat_name: Optional[str] = None
+    ) -> QuarantineEntry:
+        """Move the file behind ``result.path`` into the vault.
+
+        ``threat_name`` names the entry when the scan that produced ``result``
+        found nothing to name it after -- quarantining a file the user has
+        already allowed, for instance, where the allow-list short-circuits the
+        scan and the vault would otherwise just say "Unknown".
+        """
         source = Path(result.path)
         if not source.is_file():
             raise QuarantineError(f"not a regular file: {source}")
@@ -118,7 +126,7 @@ class Quarantine:
         entry = QuarantineEntry(
             entry_id=entry_id,
             original_path=str(source),
-            threat_name=result.primary_name or "Unknown",
+            threat_name=result.primary_name or threat_name or "Unknown",
             severity=result.severity,
             sha256=result.sha256,
             size=len(payload),

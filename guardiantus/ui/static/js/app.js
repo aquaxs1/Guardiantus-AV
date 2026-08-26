@@ -263,6 +263,10 @@ const ISSUE_ACTIONS = {
   update_signatures: { label: "Update now", run: () => updateSignatures() },
   quick_scan: { label: "Quick scan", run: () => startScan("quick") },
   review_quarantine: { label: "Review", run: () => showView("quarantine") },
+  review_detections: { label: "Review", run: () => {
+    showView("dashboard");
+    $("#recent-detections").scrollIntoView({ behavior: "smooth", block: "center" });
+  } },
 };
 
 async function refreshDashboard() {

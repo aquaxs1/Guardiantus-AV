@@ -1,0 +1,47 @@
+name: Download links
+
+# The website hardcodes release asset names into
+# .../releases/latest/download/<name>. Those names can break in two ways, and
+# neither shows up in the test suite:
+#
+#   * the site is renamed but the release workflow is not (or vice versa)
+#   * both agree, but no published release carries the file yet
+#
+# The second one is how the Windows .exe download went to a 404 page: the
+# rename landed on main and the release that would have produced the file was
+# never cut. Both checks below run against packaging/check_download_links.py.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    # Daily. Catches a release being deleted or retagged after the fact --
+    # neither of which touches the repository, so nothing else would notice.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  names-match:
+    name: Site links match the release workflow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python packaging/check_download_links.py
+
+  files-exist:
+    name: Linked files exist in the latest release
+    # Deliberately not run on pull requests. A PR that renames an asset is
+    # correct before the release that produces it exists, and blocking it
+    # would make the rename impossible to land.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python packaging/check_download_links.py --online --repo "${{ github.repository }}"

@@ -50,107 +50,164 @@ const GuardiantusEngine = (() => {
 
   /* ----------------------------------------------------------------- YARA */
 
-  // Ported from rules/guardiantus_base.yar. `all` = every string must appear;
-  // `any` = at least one; `count` = at least N of the listed strings.
+  /* Ported from rules/guardiantus_base.yar. `when` mirrors the rule's own
+     condition: `has(s)` is one string, `count([...])` is how many of a set
+     matched. `confidence: "low"` marks a rule that describes plausible
+     behaviour rather than identifying a threat -- see verdictFor. */
   const YARA_RULES = [
     { rule: "Guardiantus_SelfTest_Yara", name: "Guardiantus.SelfTest.YaraProbe", severity: "info", score: 10,
       description: "Self-test rule proving the YARA layer is live.",
-      all: ["GUARDIANTUS-AV-YARA-SELFTEST-MARKER"] },
+      when: (has) => has("GUARDIANTUS-AV-YARA-SELFTEST-MARKER") },
 
     { rule: "Reverse_Shell_Bash", name: "Backdoor.Shell.ReverseTCP", severity: "critical", score: 90,
       description: "Bash reverse shell using /dev/tcp redirection.",
-      all: ["/dev/tcp/", ">&", "bash -i"] },
+      when: (has) => has("/dev/tcp/") && has(">&") && has("bash -i") },
 
     { rule: "Reverse_Shell_Python", name: "Backdoor.Python.ReverseShell", severity: "critical", score: 90,
       description: "Python socket reverse shell wiring stdio onto a socket.",
-      all: ["socket.socket", ".connect(", "os.dup2"], any: ["pty.spawn", "subprocess.call"] },
+      when: (has) => has("socket.socket") && has(".connect(") && has("os.dup2")
+        && (has("pty.spawn") || has("subprocess.call")) },
 
     { rule: "PowerShell_Download_Cradle", name: "Trojan.PowerShell.DownloadCradle", severity: "high", score: 85,
       description: "PowerShell one-liner that downloads and immediately executes a payload.",
-      all: ["system.net.webclient"], any: ["downloadstring", "downloadfile"], any2: ["invoke-expression", "iex("],
-      nocase: true },
+      nocase: true,
+      when: (has) => has("system.net.webclient")
+        && (has("downloadstring") || has("downloadfile"))
+        && (has("invoke-expression") || has("iex(")) },
 
     { rule: "Ransomware_Shadow_Copy_Wipe", name: "Ransom.Generic.ShadowWipe", severity: "critical", score: 95,
       description: "Deletes shadow copies and disables recovery — the ransomware fingerprint.",
-      anyGroup: [["vssadmin", "delete shadows"], ["bcdedit", "recoveryenabled no"], ["delete catalog"]],
-      nocase: true },
+      nocase: true,
+      when: (has) => (has("vssadmin") && has("delete shadows"))
+        || (has("bcdedit") && has("recoveryenabled no")) || has("delete catalog") },
 
-    { rule: "Ransom_Note_Text", name: "Ransom.Note.Generic", severity: "high", score: 80,
-      description: "Text file carrying a ransom note.",
-      count: 3, nocase: true,
-      strings: ["your files have been encrypted", "all your files are encrypted", "to decrypt your files",
-                "bitcoin", ".onion", "decryption key"] },
+    /* A note has to claim the encryption *and* name a way to pay. Three of six
+       generic words also describes any article about ransomware -- and nothing
+       in the text can tell those apart, so this reports rather than convicts. */
+    { rule: "Ransom_Note_Text", name: "Ransom.Note.Generic", severity: "high", score: 75,
+      confidence: "low", description: "Text that reads like a ransom note.",
+      nocase: true,
+      when: (has, count) =>
+        count(["your files have been encrypted", "all your files are encrypted", "to decrypt your files"]) >= 1
+        && count(["bitcoin", ".onion", "decryption key"]) >= 2 },
 
-    { rule: "Credential_Stealer_Browser", name: "Spyware.Stealer.BrowserCredentials", severity: "critical", score: 90,
-      description: "Reads browser credential stores — infostealer behaviour.",
-      anyGroup: [["Login Data", "\\Google\\Chrome\\User Data"], ["logins.json", "key4.db"],
-                 ["CryptUnprotectData", "Cookies"]] },
+    /* Chrome contains every string a Chrome-stealer references: its own
+       user-data path, "Login Data" and its own master-key name. Reaching into
+       several vendors' stores at once is the part that is hard to explain --
+       and a profile importer does that too, so this reports rather than
+       convicts. */
+    { rule: "Credential_Stealer_Browser", name: "Spyware.Stealer.BrowserCredentials", severity: "high", score: 75,
+      confidence: "low", description: "Reads several browsers' credential stores — infostealer behaviour.",
+      nocase: true,
+      when: (has, count) =>
+        count(["\\google\\chrome\\user data", "\\microsoft\\edge\\user data",
+               "\\bravesoftware\\brave-browser", "\\opera software\\opera stable",
+               "logins.json", "key4.db", "login data"]) >= 3
+        && (has("cryptunprotectdata") || has("encrypted_key")) },
 
+    /* Reading key state is what every game and input library does; installing
+       the low-level hook is what makes it a keylogger. */
     { rule: "Keylogger_Windows_Hooks", name: "Spyware.Keylogger.WinHook", severity: "high", score: 85,
       description: "Installs a low-level keyboard hook and records keystrokes.",
-      anyGroup: [["SetWindowsHookEx", "WH_KEYBOARD_LL"], ["GetAsyncKeyState", "GetKeyboardState"]] },
+      when: (has) => has("SetWindowsHookEx")
+        && (has("WH_KEYBOARD_LL") || (has("GetAsyncKeyState") && has("GetKeyboardState"))) },
 
+    /* All three stages, not two plus OpenProcess: naming a couple of these is
+       ordinary for debuggers, installers and every Windows library that
+       re-exports the process API. */
     { rule: "Process_Injection_Classic", name: "Trojan.Win32.ProcessInjection", severity: "high", score: 85,
       description: "Classic CreateRemoteThread process-injection API chain.",
-      all: ["VirtualAllocEx", "WriteProcessMemory"],
-      any: ["CreateRemoteThread", "QueueUserAPC", "OpenProcess"] },
+      when: (has) => has("VirtualAllocEx") && has("WriteProcessMemory")
+        && (has("CreateRemoteThread") || has("QueueUserAPC")) },
 
-    { rule: "Crypto_Miner_Config", name: "Trojan.CoinMiner.Config", severity: "high", score: 80,
-      description: "Cryptocurrency miner configuration or command line.",
+    /* A stratum URL on its own is just the word: it appears in documentation
+       and in the config of someone who mines on purpose. */
+    { rule: "Crypto_Miner_Config", name: "Trojan.CoinMiner.Config", severity: "high", score: 70,
+      confidence: "low", description: "Cryptocurrency miner configuration or command line.",
       nocase: true,
-      anyGroup: [["stratum+tcp://"], ["xmrig", "--donate-level"], ["randomx", "cryptonight"]] },
+      when: (has, count) =>
+        (has("stratum+tcp://") && count(["xmrig", "donate-level", "randomx", "cryptonight"]) >= 1)
+        || (has("xmrig") && has("donate-level")) },
 
     { rule: "Linux_Persistence_Cron", name: "Backdoor.Linux.CronPersistence", severity: "medium", score: 70,
       description: "Cron entry that repeatedly fetches and runs remote code.",
-      anyOf: [["/etc/cron", "crontab -"], ["curl -", "wget -"], ["| sh", "| bash"]] },
+      when: (has) => (has("/etc/cron") || has("crontab -"))
+        && (has("curl -") || has("wget -")) && (has("| sh") || has("| bash")) },
 
     { rule: "Suspicious_UPX_Dropper", name: "Trojan.Packed.UPXDropper", severity: "medium", score: 65,
       description: "UPX-packed executable that also reaches for remote-download APIs.",
-      all: ["UPX!"], any: ["URLDownloadToFile", "WinHttpOpenRequest", "InternetOpenUrlA"] },
+      when: (has) => has("UPX!")
+        && (has("URLDownloadToFile") || has("WinHttpOpenRequest") || has("InternetOpenUrlA")) },
 
     { rule: "Office_Macro_Dropper", name: "Trojan.Doc.MacroDropper", severity: "high", score: 85,
       description: "Office macro that auto-runs and spawns a shell or downloader.",
       nocase: true,
-      anyOf: [["auto_open", "autoopen", "document_open"], ["shell(", "wscript.shell", "msxml2.xmlhttp"]] },
+      when: (has) => (has("auto_open") || has("autoopen") || has("document_open"))
+        && (has("shell(") || has("wscript.shell") || has("msxml2.xmlhttp")) },
   ];
 
   /* ----------------------------------------------------------- heuristics */
 
+  /* [regex, label, score, primary]. A *primary* finding is a construct
+     specific to malicious software; the rest are *supporting* -- properties
+     malware often has and ordinary files have too. Only a primary finding can
+     raise an alarm. See analyseHeuristics. */
   const SCRIPT_PATTERNS = [
-    [/frombase64string\s*\(/i, "PowerShell base64 payload decode", 25],
-    [/-enc(?:odedcommand)?\s+[A-Za-z0-9+/=]{40,}/i, "PowerShell encoded command", 40],
-    [/invoke-expression|(?<![\w-])iex(?![\w-])/i, "Dynamic code execution (IEX)", 25],
-    [/downloadstring\s*\(|downloadfile\s*\(/i, "Remote payload download", 30],
-    [/new-object\s+system\.net\.webclient/i, "WebClient dropper pattern", 25],
-    [/-(?:exec(?:utionpolicy)?)\s+bypass/i, "ExecutionPolicy bypass", 30],
-    [/\beval\s*\(\s*(?:atob|base64_decode|gzinflate)/i, "Obfuscated eval chain", 40],
-    [/\bshell_exec\s*\(|\bpassthru\s*\(|\bsystem\s*\(\s*\$_/i, "PHP command execution", 35],
-    [/wscript\.shell/i, "WScript.Shell automation", 20],
-    [/reg(?:\.exe)?\s+add\s+.{0,80}\\currentversion\\run/i, "Run-key persistence", 35],
-    [/schtasks\s+\/create/i, "Scheduled-task persistence", 25],
-    [/vssadmin\s+delete\s+shadows|wbadmin\s+delete\s+catalog/i, "Shadow-copy deletion (ransomware)", 60],
-    [/bcdedit\s+.{0,40}recoveryenabled\s+no/i, "Recovery disabled (ransomware)", 55],
-    [/rm\s+-rf\s+(?:\/|\/\*|\$HOME)/i, "Destructive recursive delete", 45],
-    [/(?:curl|wget)\s+[^|\n]{0,120}\|\s*(?:ba)?sh/i, "Pipe-to-shell installer", 40],
-    [/nc(?:\.exe)?\s+-(?:l|e)\s/i, "Netcat listener/reverse shell", 35],
-    [/\/dev\/tcp\/\d{1,3}(?:\.\d{1,3}){3}\/\d+/i, "Raw TCP reverse shell", 45],
-    [/crontab\s+-\s*$|>>\s*\/etc\/cron/im, "Cron persistence", 25],
-    [/mimikatz|sekurlsa::|lsadump::/i, "Credential-dumping tooling", 70],
-    [/\bkeylog|GetAsyncKeyState|SetWindowsHookEx/i, "Keylogging API usage", 40],
+    [/frombase64string\s*\(/i, "PowerShell base64 payload decode", 25, false],
+    [/-enc(?:odedcommand)?\s+[A-Za-z0-9+/=]{40,}/i, "PowerShell encoded command", 40, true],
+    [/invoke-expression|(?<![\w-])iex(?![\w-])/i, "Dynamic code execution (IEX)", 25, false],
+    [/downloadstring\s*\(|downloadfile\s*\(/i, "Remote payload download", 30, false],
+    [/new-object\s+system\.net\.webclient/i, "WebClient dropper pattern", 25, false],
+    [/-(?:exec(?:utionpolicy)?)\s+bypass/i, "ExecutionPolicy bypass", 30, true],
+    [/\beval\s*\(\s*(?:atob|base64_decode|gzinflate)/i, "Obfuscated eval chain", 40, true],
+    [/\bshell_exec\s*\(|\bpassthru\s*\(|\bsystem\s*\(\s*\$_/i, "PHP command execution", 35, true],
+    [/wscript\.shell/i, "WScript.Shell automation", 20, false],
+    [/reg(?:\.exe)?\s+add\s+.{0,80}\\currentversion\\run/i, "Run-key persistence", 35, true],
+    [/schtasks\s+\/create/i, "Scheduled-task persistence", 25, false],
+    [/vssadmin\s+delete\s+shadows|wbadmin\s+delete\s+catalog/i, "Shadow-copy deletion (ransomware)", 60, true],
+    [/bcdedit\s+.{0,40}recoveryenabled\s+no/i, "Recovery disabled (ransomware)", 55, true],
+    [/rm\s+-rf\s+(?:\/|\/\*|\$HOME)/i, "Destructive recursive delete", 45, true],
+    [/(?:curl|wget)\s+[^|\n]{0,120}\|\s*(?:ba)?sh/i, "Pipe-to-shell installer", 40, true],
+    [/nc(?:\.exe)?\s+-(?:l|e)\s/i, "Netcat listener/reverse shell", 35, true],
+    [/\/dev\/tcp\/\d{1,3}(?:\.\d{1,3}){3}\/\d+/i, "Raw TCP reverse shell", 45, true],
+    [/crontab\s+-\s*$|>>\s*\/etc\/cron/im, "Cron persistence", 25, false],
+    [/mimikatz|sekurlsa::|lsadump::/i, "Credential-dumping tooling", 70, true],
+    [/\bkeylog|GetAsyncKeyState|SetWindowsHookEx/i, "Keylogging API usage", 40, true],
   ];
 
-  const RANSOM_HINTS = [
-    "your files have been encrypted", "all your files are encrypted", "to decrypt your files",
-    "bitcoin wallet", "tor browser", "recover your data", "decryption key",
+  const DOWNLOAD_LABELS = ["Remote payload download", "WebClient dropper pattern"];
+  const EXECUTE_LABELS = ["Dynamic code execution (IEX)", "Obfuscated eval chain",
+                          "WScript.Shell automation"];
+
+  // A note claims the encryption happened, and names a way to pay. Either half
+  // alone is ordinary: a backup note mentions a wallet and a decryption key.
+  const RANSOM_CLAIMS = [
+    "your files have been encrypted", "all your files are encrypted",
+    "to decrypt your files", "your data has been encrypted",
+  ];
+  const RANSOM_DEMANDS = [
+    "bitcoin wallet", "tor browser", "recover your data",
+    "decryption key", "contact us", "payment",
   ];
 
+  // Windows forwarder DLLs contain nothing but the names of the Win32
+  // functions they re-export, so every behavioural rule matches them.
+  const SYSTEM_LIBRARY_PREFIXES = [
+    "api-ms-win-", "ext-ms-win-", "ucrtbase", "vcruntime", "msvcp", "msvcr",
+    "kernel32", "kernelbase", "ntdll", "advapi32", "combase", "python3",
+  ];
+
+  const SCRIPT_EXT = [".ps1", ".psm1", ".bat", ".cmd", ".vbs", ".vbe", ".js", ".jse", ".wsf",
+                      ".hta", ".sh", ".bash", ".py", ".pl", ".php", ".rb", ".lua"];
   const EXECUTABLE_EXT = [".exe", ".dll", ".scr", ".com", ".pif", ".cpl", ".bat", ".cmd", ".js", ".vbs", ".msi"];
   const DECOY_EXT = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".txt", ".mp4", ".zip"];
   const DOCUMENT_EXT = [".doc", ".docm", ".xls", ".xlsm", ".ppt", ".pptm", ".rtf", ".pdf"];
   const RTL_MARKS = ["‮", "‫", "⁧"];
 
   const ONION_RE = /\b[a-z2-7]{16,56}\.onion\b/i;
-  const LONG_B64_RE = /[A-Za-z0-9+/]{200,}={0,2}/;
+  // Only very long unbroken runs are interesting: config files, skin caches
+  // and web assets routinely carry a few hundred characters of base64.
+  const LONG_B64_RE = /[A-Za-z0-9+/]{1500,}={0,2}/;
   const URL_RE = /\bhttps?:\/\/[a-z0-9.\-]{4,}/gi;
   const IPV4_RE = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 
@@ -240,24 +297,14 @@ const GuardiantusEngine = (() => {
     for (const rule of YARA_RULES) {
       const haystack = rule.nocase ? lower : text;
       const has = (needle) => haystack.includes(rule.nocase ? needle.toLowerCase() : needle);
+      const count = (needles) => needles.filter(has).length;
 
-      let fired;
-      if (rule.count) {
-        fired = rule.strings.filter(has).length >= rule.count;
-      } else if (rule.anyGroup) {
-        fired = rule.anyGroup.some((group) => group.every(has));
-      } else if (rule.anyOf) {
-        fired = rule.anyOf.every((group) => group.some(has));
-      } else {
-        fired = (rule.all || []).every(has)
-          && (!rule.any || rule.any.some(has))
-          && (!rule.any2 || rule.any2.some(has));
-      }
-      if (!fired) continue;
+      if (!rule.when(has, count)) continue;
 
       found.push({
         source: "yara", layer: "YARA rule", name: rule.name,
         severity: rule.severity, score: rule.score, description: rule.description,
+        confidence: rule.confidence || "high",
         evidence: `rule ${rule.rule}`,
       });
     }
@@ -266,82 +313,128 @@ const GuardiantusEngine = (() => {
 
   /* ---------------------------------------------------- layer: heuristics */
 
+  function isOsRuntimeLibrary(name, text) {
+    const lower = name.toLowerCase();
+    if (!SYSTEM_LIBRARY_PREFIXES.some((prefix) => lower.startsWith(prefix))) return false;
+    if (!text.startsWith("MZ")) return false;
+    // The export directory of a forwarder carries the module's own name; an
+    // impostor that only borrows the name does not get the free pass.
+    const stem = lower.replace(/\.[^.]*$/, "");
+    return stem.length > 0 && text.toLowerCase().includes(stem);
+  }
+
+  /* Findings are [label, score, severity, primary]. A file is only reported
+     when at least one *primary* finding is present: entropy, base64 blobs,
+     hardcoded URLs and injection API imports are things ordinary files have
+     too, and adding them up used to be enough to raise an alarm on a game
+     asset bundle or a launcher log. */
   function analyseHeuristics(bytes, text, name, threshold = 60) {
     const rules = [];
     const type = detectType(bytes, name);
     const ext = extension(name);
     const lowerName = name.toLowerCase();
+    const isScript = type === "script" || SCRIPT_EXT.includes(ext);
+    const bits = entropy(bytes.slice(0, 262144));
 
     // Naming tricks.
     const parts = lowerName.split(".");
     if (parts.length >= 3) {
       const inner = `.${parts[parts.length - 2]}`;
       if (DECOY_EXT.includes(inner) && EXECUTABLE_EXT.includes(ext)) {
-        rules.push(["Double extension disguise", 45, "high"]);
+        rules.push(["Double extension disguise", 45, "high", true]);
       }
     }
     if (RTL_MARKS.some((mark) => name.includes(mark))) {
-      rules.push(["Right-to-left override in filename", 60, "high"]);
+      rules.push(["Right-to-left override in filename", 60, "high", true]);
     }
     if (DOCUMENT_EXT.includes(ext) && ["pe", "elf"].includes(type)) {
-      rules.push(["Executable masquerading as a document", 65, "critical"]);
+      rules.push(["Executable masquerading as a document", 65, "critical", true]);
     }
     if ([".jpg", ".png", ".gif", ".mp3", ".mp4"].includes(ext) && ["pe", "elf"].includes(type)) {
-      rules.push(["Executable masquerading as media", 60, "high"]);
+      rules.push(["Executable masquerading as media", 60, "high", true]);
     }
 
-    // Entropy.
-    const bits = entropy(bytes.slice(0, 262144));
+    // Entropy. Compressed archives, media and minified assets are all
+    // high-entropy, so this only ever counts as corroboration.
     if (["pe", "elf"].includes(type) && bits > 7.2) {
-      rules.push([`High-entropy executable (packed, ${bits.toFixed(2)} bits/byte)`, 30, "medium"]);
-    } else if (["script", "text"].includes(type) && bits > 5.6 && bytes.length > 2048) {
-      rules.push([`Obfuscated script content (${bits.toFixed(2)} bits/byte)`, 30, "medium"]);
+      rules.push([`High-entropy executable (packed, ${bits.toFixed(2)} bits/byte)`, 30, "medium", false]);
+    } else if (isScript && bits > 6.2 && bytes.length > 2048) {
+      rules.push([`Obfuscated script content (${bits.toFixed(2)} bits/byte)`, 20, "medium", false]);
     }
 
-    // Script constructs.
-    if (["script", "text", "ole"].includes(type)) {
-      for (const [regex, label, score] of SCRIPT_PATTERNS) {
-        if (regex.test(text)) rules.push([label, score, score >= 40 ? "high" : "medium"]);
+    // Attacker constructs. These run on plain text too -- a ransom note or a
+    // wiper batch file is not a script by extension.
+    if (["script", "text", "ole"].includes(type) || isScript) {
+      const labels = new Set();
+      for (const [regex, label, score, primary] of SCRIPT_PATTERNS) {
+        if (regex.test(text)) {
+          rules.push([label, score, score >= 40 ? "high" : "medium", primary]);
+          labels.add(label);
+        }
       }
-      if (LONG_B64_RE.test(text)) rules.push(["Large embedded base64 blob", 25, "medium"]);
-      if (ONION_RE.test(text)) rules.push(["Tor hidden-service address", 35, "high"]);
+      // Fetching a payload is ordinary and running a string is ordinary; a
+      // script that does both in one breath is a download cradle.
+      if (DOWNLOAD_LABELS.some((l) => labels.has(l)) && EXECUTE_LABELS.some((l) => labels.has(l))) {
+        rules.push(["Download-and-execute chain", 45, "high", true]);
+      }
+      if (ONION_RE.test(text)) rules.push(["Tor hidden-service address", 35, "high", true]);
+    }
+
+    // Shape-of-the-file signals. Scripts only: data files trip all of them.
+    if (isScript) {
+      if (LONG_B64_RE.test(text)) rules.push(["Large embedded base64 blob", 20, "low", false]);
 
       const urls = new Set(text.match(URL_RE) || []);
-      if (urls.size > 12) rules.push([`Many hardcoded URLs (${urls.size})`, 15, "low"]);
+      if (urls.size > 12) rules.push([`Many hardcoded URLs (${urls.size})`, 10, "low", false]);
 
       const ips = new Set((text.match(IPV4_RE) || []).filter((ip) => !/^(0\.|127\.|255\.)/.test(ip)));
-      if (ips.size >= 3) rules.push([`Multiple hardcoded IP addresses (${ips.size})`, 20, "medium"]);
+      if (ips.size >= 3) rules.push([`Multiple hardcoded IP addresses (${ips.size})`, 10, "low", false]);
     }
 
     // Structural.
     if (type === "pe") {
       for (const marker of ["UPX!", "UPX0", "ASPack", "MPRESS1", "Themida", "VMProtect"]) {
-        if (text.includes(marker)) { rules.push([`Packed executable (${marker})`, 30, "medium"]); break; }
+        if (text.includes(marker)) { rules.push([`Packed executable (${marker})`, 30, "medium", false]); break; }
       }
+      // Two matching strings prove nothing -- debuggers, installers and
+      // anti-cheat shims import them too.
       const apis = ["VirtualAllocEx", "WriteProcessMemory", "CreateRemoteThread", "QueueUserAPC",
                     "SetThreadContext", "NtUnmapViewOfSection"].filter((api) => text.includes(api));
-      if (apis.length >= 2) rules.push([`Process-injection API combination (${apis.length})`, 20 + 15 * Math.min(apis.length, 4), "high"]);
+      if (apis.length >= 3) {
+        rules.push([`Process-injection API combination (${apis.length})`,
+                    Math.min(30, 10 * apis.length), "medium", false]);
+      }
     }
     if (type === "pdf" && (text.includes("/JavaScript") || text.includes("/JS")) && text.includes("/OpenAction")) {
-      rules.push(["PDF with auto-run JavaScript", 40, "high"]);
+      rules.push(["PDF with auto-run JavaScript", 40, "high", true]);
     }
     if (text.includes("Auto_Open") || text.includes("AutoOpen") || text.includes("Document_Open")) {
-      rules.push(["Auto-executing office macro", 45, "high"]);
-    }
-    const noteHits = RANSOM_HINTS.filter((hint) => text.toLowerCase().includes(hint));
-    if (noteHits.length >= 2) rules.push(["Ransom-note text", 70, "critical"]);
-    if (["pe", "elf"].includes(type) && bytes.length < 8192) {
-      rules.push(["Unusually small executable", 15, "low"]);
+      rules.push(["Auto-executing office macro", 45, "high", true]);
     }
 
-    if (!rules.length) return { detections: [], type, entropy: bits, rules: [] };
+    const lowerText = text.toLowerCase();
+    const claims = RANSOM_CLAIMS.filter((hint) => lowerText.includes(hint));
+    const demands = RANSOM_DEMANDS.filter((hint) => lowerText.includes(hint));
+    // High, not critical: nothing in the words separates a real note from an
+    // article about ransomware, and critical would have the file taken away.
+    if (claims.length && demands.length) rules.push(["Ransom-note text", 70, "high", true]);
+
+    if (["pe", "elf"].includes(type) && bytes.length < 8192) {
+      rules.push(["Unusually small executable", 15, "low", false]);
+    }
+
+    const primary = rules.filter((r) => r[3]);
+    if (!rules.length || !primary.length) return { detections: [], type, entropy: bits, rules };
 
     const total = rules.reduce((sum, r) => sum + r[1], 0);
     if (total < threshold) return { detections: [], type, entropy: bits, rules };
 
     const sorted = [...rules].sort((a, b) => b[1] - a[1]);
-    const severity = worstSeverity(rules.map((r) => r[2]));
-    const slug = sorted[0][0].replace(/[^A-Za-z0-9]+/g, "").slice(0, 34) || "Generic";
+    // Both the name and the severity come from the primary findings, so the
+    // user never sees an alarm titled after a supporting observation.
+    const label = [...primary].sort((a, b) => b[1] - a[1])[0][0];
+    const severity = worstSeverity(primary.map((r) => r[2]));
+    const slug = label.replace(/[^A-Za-z0-9]+/g, "").slice(0, 34) || "Generic";
 
     return {
       type,
@@ -349,7 +442,7 @@ const GuardiantusEngine = (() => {
       rules: sorted,
       detections: [{
         source: "heuristic", layer: "Heuristics", name: `Heuristic.${slug}`,
-        severity, score: Math.min(100, total),
+        severity, score: Math.min(100, total), confidence: "high",
         description: sorted.slice(0, 3).map((r) => r[0]).join("; "),
         evidence: `score ${total} of ${threshold} needed`,
       }],
@@ -368,10 +461,17 @@ const GuardiantusEngine = (() => {
     return [...best.values()].sort((a, b) => b.score - a.score);
   }
 
+  /* A signature or YARA hit normally names a specific threat, which makes the
+     file malicious and therefore something to move. Rules that describe
+     behaviour they cannot pin down say so with confidence "low" and only ever
+     reach suspicious, so an imprecise rule reports rather than takes a file
+     away. Same rule as FileScanner._verdict_for in the product. */
   function verdictFor(detections) {
     if (!detections.length) return "clean";
-    if (detections.some((d) => d.source === "signature" || d.source === "yara")) return "malicious";
-    if (detections.some((d) => d.severity === "critical")) return "malicious";
+    const identified = (d) => (d.source === "signature" || d.source === "yara")
+      && d.confidence !== "low";
+    if (detections.some(identified)) return "malicious";
+    if (detections.some((d) => d.severity === "critical" && d.confidence !== "low")) return "malicious";
     return "suspicious";
   }
 
@@ -400,12 +500,21 @@ const GuardiantusEngine = (() => {
     }
 
     const digest = await sha256(view);
-    const heur = analyseHeuristics(view, text, name, threshold);
+
+    /* Windows API-set forwarder DLLs contain nothing but the names of the
+       Win32 functions they re-export, so every behavioural rule matches them
+       by construction. They are judged on signatures alone; a real threat
+       wearing one of those names still has to survive the hash and pattern
+       database. Same gate as FileScanner._inspect_buffer in the product. */
+    const behavioural = !isOsRuntimeLibrary(name, text);
+    const heur = behavioural
+      ? analyseHeuristics(view, text, name, threshold)
+      : { detections: [], type: detectType(view, name), entropy: entropy(view.slice(0, 262144)), rules: [] };
 
     const detections = dedupe([
       ...matchHash(digest),
       ...matchPatterns(text),
-      ...matchYara(text),
+      ...(behavioural ? matchYara(text) : []),
       ...heur.detections,
     ]);
 

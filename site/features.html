@@ -126,17 +126,18 @@
       </article>
       <article class="card feature">
         <h3>Heuristics</h3>
-        <p>Scored rules summed against a threshold you control.</p>
+        <p>Scored rules summed against a threshold you control — but an alarm
+        always needs one construct that is specific to malware.</p>
         <ul>
-          <li>Shannon entropy — packing and encryption</li>
-          <li>PE header, section count, packer markers</li>
-          <li>Process-injection API combinations</li>
-          <li>Script obfuscation, encoded commands, eval chains</li>
-          <li>Ransom-note text and shadow-copy deletion</li>
+          <li>Encoded commands, eval chains, reverse shells</li>
+          <li>Shadow-copy deletion and ransom-note text</li>
           <li>Double extensions like <code>invoice.pdf.exe</code></li>
           <li>Right-to-left override filenames</li>
           <li>Executables masquerading as documents or media</li>
         </ul>
+        <p class="muted">Entropy, packing, embedded base64 and process-injection
+        API imports only ever corroborate one of the above. On their own they
+        describe a game asset bundle or a launcher log just as well.</p>
       </article>
       <article class="card feature">
         <h3>Archive inspection</h3>

@@ -185,9 +185,12 @@
 
     <div class="callout mt-6">
       <svg><use href="#i-info"></use></svg>
-      <p><strong>Why false positives matter.</strong> Catching every threat is easy if you
-      block everything. The hard part is not blocking safe files — which is why every
-      Guardiantus quarantine is reversible.</p>
+      <p><strong>Why false positives matter.</strong> Catching every threat is easy if
+      you block everything. The hard part is leaving safe files alone. Try
+      <code>launcher_log.txt</code> or the Windows forwarder DLL: both look alarming
+      by the numbers and neither raises an alarm. Where the engine cannot tell two
+      things apart it says <em>suspicious</em> and leaves the file where it is —
+      and anything it does move, it can move back.</p>
     </div>
   </div>
 </section>

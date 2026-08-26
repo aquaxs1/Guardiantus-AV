@@ -225,6 +225,38 @@ def test_the_data_directory_is_never_scanned(scanner, isolated_home):
     assert scanner.scan_file(planted).verdict is Verdict.SKIPPED
 
 
+def test_exclusion_matching_does_not_fall_for_a_shared_prefix(tmp_path):
+    """``/data`` must not exclude ``/database``.
+
+    The roots are compared as strings for speed, which is exactly where a
+    naive prefix check goes wrong.
+    """
+    import os
+
+    from guardiantus.core.scanner import _is_within
+
+    def within(path, ancestor):
+        return _is_within(os.path.normcase(str(path)), os.path.normcase(str(ancestor)))
+
+    assert within(tmp_path / "data" / "f.txt", tmp_path / "data")
+    assert within(tmp_path / "data", tmp_path / "data")
+    assert within(tmp_path / "data" / "a" / "b" / "f.txt", tmp_path)
+    assert not within(tmp_path / "database" / "f.txt", tmp_path / "data")
+    assert not within(tmp_path / "other" / "f.txt", tmp_path / "data")
+
+
+def test_changing_exclusions_takes_effect_at_once(scanner, samples):
+    """The derived views are cached; a write has to invalidate them."""
+    target = samples / "eicar.com"
+    assert scanner.scan_file(target).verdict is Verdict.MALICIOUS
+
+    scanner.config.set("scanning", "excluded_paths", [str(samples)])
+    assert scanner.scan_file(target).verdict is Verdict.SKIPPED
+
+    scanner.config.set("scanning", "excluded_paths", [])
+    assert scanner.scan_file(target).verdict is Verdict.MALICIOUS
+
+
 def test_a_trusted_hash_is_never_flagged_again(scanner, samples):
     from guardiantus.core.hashing import hash_file
 
@@ -235,6 +267,10 @@ def test_a_trusted_hash_is_never_flagged_again(scanner, samples):
     result = scanner.scan_file(target)
     assert result.verdict is Verdict.CLEAN
     assert result.error == "allowed by user"
+
+    # ...and revoking it is picked up just as immediately.
+    scanner.config.revoke_hash(hash_file(target)["sha256"])
+    assert scanner.scan_file(target).verdict is Verdict.MALICIOUS
 
 
 # --------------------------------------------------------------------- yara

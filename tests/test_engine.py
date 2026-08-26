@@ -258,6 +258,100 @@ def test_yara_ransom_note_rule(scanner, samples):
     assert "Ransom" in result.primary_name
 
 
+# ------------------------------------------------- yara: rule precision
+
+def test_a_browser_is_not_a_credential_stealer(scanner, tmp_path):
+    """Chrome ships every string a Chrome-stealer references."""
+    target = tmp_path / "chrome.dll"
+    target.write_bytes(
+        b"Login Data\x00\\Google\\Chrome\\User Data\x00Cookies\x00"
+        b"encrypted_key\x00CryptUnprotectData\x00" + b"\x00" * 4096
+    )
+    assert scanner.scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_stealer_reaching_into_several_browsers_is_flagged(scanner, tmp_path):
+    target = tmp_path / "grabber.exe"
+    target.write_bytes(
+        b"\\Google\\Chrome\\User Data\x00\\Microsoft\\Edge\\User Data\x00"
+        b"logins.json\x00key4.db\x00CryptUnprotectData\x00" + b"\x00" * 4096
+    )
+    result = scanner.scan_file(target)
+    assert result.primary_name == "Spyware.Stealer.BrowserCredentials"
+
+
+def test_mentioning_stratum_is_not_a_miner(scanner, tmp_path):
+    target = tmp_path / "article.txt"
+    target.write_text("Point your miner at stratum+tcp://pool.example.org:3333 to get started.")
+    assert scanner.scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_miner_config_is_still_flagged(scanner, tmp_path):
+    target = tmp_path / "config.json"
+    target.write_text('{"url": "stratum+tcp://pool.invalid:3333", "algo": "randomx"}')
+    assert scanner.scan_file(target).primary_name == "Trojan.CoinMiner.Config"
+
+
+def test_low_confidence_rules_report_but_do_not_convict(scanner, tmp_path):
+    """Some behaviour cannot be told apart from the outside.
+
+    A ransom note and an article about ransomware use the same words, so the
+    rule reports the file as suspicious -- which leaves it where it is --
+    rather than calling it malicious and having it moved to the vault.
+    """
+    target = tmp_path / "note.txt"
+    target.write_text(
+        "All your files are encrypted. Send bitcoin to our wallet.\n"
+        "Reach us through the tor browser at example.onion.\n"
+    )
+    result = scanner.scan_file(target)
+    assert result.verdict is Verdict.SUSPICIOUS, "a low-confidence hit must not convict"
+    assert result.is_threat
+    assert any(d.confidence == "low" for d in result.detections)
+
+
+def test_words_without_an_encryption_claim_are_not_a_ransom_note(scanner, tmp_path):
+    target = tmp_path / "wallet-notes.txt"
+    target.write_text("My bitcoin wallet backup lives offline; the decryption key is on paper.")
+    assert scanner.scan_file(target).verdict is Verdict.CLEAN
+
+
+def test_counting_expressions_combine_with_booleans():
+    """``2 of ($a, $b) and $c`` -- the shape a precise rule needs."""
+    source = """
+    rule Mixed {
+        strings:
+            $a = "alpha"
+            $b = "beta"
+            $c = "gamma"
+            $d = "delta"
+        condition:
+            2 of ($a, $b, $c) and $d
+    }
+    """
+    rule = _parse_rules(source)[0]
+    assert rule.evaluate(b"alpha beta delta") is not None
+    assert rule.evaluate(b"alpha delta") is None
+    assert rule.evaluate(b"alpha beta gamma") is None
+
+
+def test_counting_expressions_nest_inside_parentheses():
+    source = """
+    rule Nested {
+        strings:
+            $x = "xx"
+            $y = "yy"
+            $z = "zz"
+        condition:
+            $x and (2 of them or $z)
+    }
+    """
+    rule = _parse_rules(source)[0]
+    assert rule.evaluate(b"xx zz") is not None
+    assert rule.evaluate(b"xx yy") is not None
+    assert rule.evaluate(b"xx") is None
+
+
 def test_fallback_boolean_evaluator():
     hits = {"$a": 0, "$b": 5}
     assert _eval_boolean("$a and $b", hits) is True

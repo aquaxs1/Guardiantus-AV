@@ -10,6 +10,9 @@
         threat_name  name reported in the UI (defaults to the rule name)
         severity     info | low | medium | high | critical
         score        0-100 confidence contribution
+        confidence   high (default) | low -- "low" marks a rule that describes
+                     plausible behaviour rather than identifying a threat, so
+                     it reports the file instead of convicting it
         description  shown in the detection detail panel
 */
 
@@ -93,13 +96,21 @@ rule Ransomware_Shadow_Copy_Wipe
         ($vss and $delete) or ($bcd and $recovery) or $wbadmin
 }
 
+/*
+    A note has to claim the encryption *and* name a way to pay; three of the
+    six words alone also describes any article about ransomware.  Nothing in
+    the text can tell those apart, so this reports: a note is evidence of an
+    attack rather than the thing that carried it out, and taking the victim's
+    copy away helps nobody.
+*/
 rule Ransom_Note_Text
 {
     meta:
         threat_name = "Ransom.Note.Generic"
         severity = "high"
-        score = 80
-        description = "Text file carrying a ransom note"
+        score = 75
+        confidence = "low"
+        description = "Text that reads like a ransom note"
     strings:
         $a = "your files have been encrypted" nocase
         $b = "all your files are encrypted" nocase
@@ -108,25 +119,38 @@ rule Ransom_Note_Text
         $e = ".onion" nocase
         $f = "decryption key" nocase
     condition:
-        3 of them
+        1 of ($a, $b, $c) and 2 of ($d, $e, $f)
 }
 
+/*
+    A browser contains every string a browser-stealer references: Chrome ships
+    "Login Data", its own user-data path and its own master-key name, and Edge
+    imports from Chrome on purpose.  Reaching into *several* vendors' stores at
+    once is the part that is hard to explain innocently, so that is what this
+    counts -- and because a profile importer does the same thing, it reports
+    rather than convicts.
+*/
 rule Credential_Stealer_Browser
 {
     meta:
         threat_name = "Spyware.Stealer.BrowserCredentials"
-        severity = "critical"
-        score = 90
-        description = "Reads browser credential stores — infostealer behaviour"
+        severity = "high"
+        score = 75
+        confidence = "low"
+        description = "Reads several browsers' credential stores — infostealer behaviour"
     strings:
-        $login = "Login Data"
-        $cookies = "Cookies"
         $chrome = "\\Google\\Chrome\\User Data" nocase
+        $edge = "\\Microsoft\\Edge\\User Data" nocase
+        $brave = "\\BraveSoftware\\Brave-Browser" nocase
+        $opera = "\\Opera Software\\Opera Stable" nocase
         $firefox = "logins.json" nocase
         $key = "key4.db" nocase
+        $login = "Login Data"
+        $master = "encrypted_key" nocase
         $dpapi = "CryptUnprotectData" nocase
     condition:
-        ($login and $chrome) or ($firefox and $key) or ($dpapi and $cookies)
+        3 of ($chrome, $edge, $brave, $opera, $firefox, $key, $login)
+        and ($dpapi or $master)
 }
 
 /*
@@ -172,12 +196,19 @@ rule Process_Injection_Classic
         $alloc and $write and ($thread or $apc)
 }
 
+/*
+    A stratum URL on its own is just the word: it appears in documentation, in
+    articles and in the config of someone who mines on purpose.  Pairing it
+    with a miner-specific option is what makes it a miner.  Mining is also a
+    choice a user is allowed to make, so this reports rather than convicts.
+*/
 rule Crypto_Miner_Config
 {
     meta:
         threat_name = "Trojan.CoinMiner.Config"
         severity = "high"
-        score = 80
+        score = 70
+        confidence = "low"
         description = "Cryptocurrency miner configuration or command line"
     strings:
         $stratum = "stratum+tcp://" nocase
@@ -186,7 +217,7 @@ rule Crypto_Miner_Config
         $algo = "randomx" nocase
         $coin = "cryptonight" nocase
     condition:
-        $stratum or ($xmrig and $pool) or ($algo and $coin)
+        ($stratum and 1 of ($xmrig, $pool, $algo, $coin)) or ($xmrig and $pool)
 }
 
 rule Linux_Persistence_Cron

@@ -63,6 +63,12 @@ class Detection:
     severity: Severity
     description: str = ""
     score: int = 0
+    #: ``"low"`` for rules that describe a plausible threat rather than
+    #: identify one.  Some behaviour is simply indistinguishable from the
+    #: outside -- a browser reading its own password store looks exactly like
+    #: a stealer reading it -- so those rules report without the file being
+    #: treated as confirmed malware and moved to the vault.
+    confidence: str = "high"
     evidence: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:

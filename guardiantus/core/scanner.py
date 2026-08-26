@@ -331,11 +331,20 @@ class FileScanner:
 
     @staticmethod
     def _verdict_for(detections: Sequence[Detection]) -> Verdict:
+        """Confirmed threat, or something worth telling the user about?
+
+        A signature or YARA hit normally names a specific threat, which makes
+        the file malicious and therefore something to move.  Rules that
+        describe behaviour they cannot pin down say so with
+        ``confidence = "low"`` and only ever reach *suspicious*, so an
+        imprecise rule reports rather than takes a file away.
+        """
         if not detections:
             return Verdict.CLEAN
-        if any(d.source in (DetectionSource.SIGNATURE, DetectionSource.YARA) for d in detections):
+        identified = (DetectionSource.SIGNATURE, DetectionSource.YARA)
+        if any(d.source in identified and d.confidence != "low" for d in detections):
             return Verdict.MALICIOUS
-        if any(d.severity is Severity.CRITICAL for d in detections):
+        if any(d.severity is Severity.CRITICAL and d.confidence != "low" for d in detections):
             return Verdict.MALICIOUS
         return Verdict.SUSPICIOUS
 

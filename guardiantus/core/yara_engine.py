@@ -2,8 +2,8 @@
 
 ``yara-python`` is optional.  When it is unavailable the engine degrades to a
 small built-in interpreter that understands the subset of YARA the bundled
-rules use: text/hex/regex strings plus ``any of them`` / ``all of them`` /
-``N of them`` and simple ``and``/``or`` combinations of string identifiers.
+rules use: text/hex/regex strings, ``any``/``all``/``N of them``, ``N of
+($a, $b)``, and ``and``/``or``/``not`` combinations of either.
 
 The fallback is deliberately conservative: a rule it cannot parse is skipped
 rather than guessed at, so a missing dependency can never manufacture a false
@@ -44,6 +44,14 @@ _STRING_ITEM_RE = re.compile(
     r'(?P<id>\$[A-Za-z0-9_]*)\s*=\s*(?P<value>"(?:[^"\\]|\\.)*"|\{[^}]*\}|/(?:[^/\\]|\\.)+/)'
     r"(?P<modifiers>(?:\s+(?:nocase|wide|ascii|fullword|private))*)",
     re.S,
+)
+
+
+#: ``2 of them`` / ``3 of ($a, $b*)`` -- folded into a single term so that
+#: counting expressions can appear inside a boolean condition.
+_COUNT_RE = re.compile(
+    r"(?P<quantity>all|any|\d+)\s+of\s+"
+    r"(?P<target>them|\(\s*\$[\w*]+(?:\s*,\s*\$[\w*]+)*\s*\))"
 )
 
 
@@ -96,32 +104,48 @@ class _FallbackRule:
         return {"rule": self.name, "meta": dict(self.meta), "strings": hits}
 
     def _condition_met(self, hits: Dict[str, int]) -> bool:
+        """Evaluate the rule's condition against the strings that matched.
+
+        Counting expressions (``2 of them``, ``3 of ($a, $b, $c)``) are folded
+        down to a synthetic identifier first, so they can be combined with
+        ``and`` / ``or`` like any other term.  Writing a precise rule usually
+        needs exactly that -- "several of these stores *and* the thing that
+        decrypts them" is what separates a credential stealer from the browser
+        it steals from.
+        """
         condition = " ".join(self.condition.split()).lower()
         if not condition:
             return False
 
-        count_match = re.fullmatch(r"(all|any|\d+) of them", condition)
-        if count_match:
-            token = count_match.group(1)
-            if token == "any":
-                return bool(hits)
-            if token == "all":
-                return len(hits) == len(self.strings)
-            return len(hits) >= int(token)
+        # Identifiers in the condition are lowercased, so the hits must be too.
+        lowered = {identifier.lower(): offset for identifier, offset in hits.items()}
+        resolved = dict(lowered)
+        counter = 0
 
-        set_match = re.fullmatch(r"(all|any|\d+) of \(\s*(\$[\w*]+(?:\s*,\s*\$[\w*]+)*)\s*\)", condition)
-        if set_match:
-            token = set_match.group(1)
-            selectors = [s.strip() for s in set_match.group(2).split(",")]
-            matched = sum(1 for s in selectors if self._selector_hit(s, hits))
-            if token == "any":
-                return matched >= 1
-            if token == "all":
-                return matched == len(selectors)
-            return matched >= int(token)
+        def fold(match: "re.Match[str]") -> str:
+            nonlocal counter
+            token = f"$__count{counter}"
+            counter += 1
+            if self._count_met(match.group("quantity"), match.group("target"), lowered):
+                resolved[token] = 0
+            return token
 
-        # Boolean combination of plain string identifiers.
-        return _eval_boolean(condition, hits)
+        return _eval_boolean(_COUNT_RE.sub(fold, condition), resolved)
+
+    def _count_met(self, quantity: str, target: str, hits: Dict[str, int]) -> bool:
+        """Is ``<quantity> of <target>`` satisfied?"""
+        if target == "them":
+            matched, total = len(hits), len(self.strings)
+        else:
+            selectors = [s.strip() for s in target.strip("()").split(",")]
+            matched = sum(1 for selector in selectors if self._selector_hit(selector, hits))
+            total = len(selectors)
+
+        if quantity == "any":
+            return matched >= 1
+        if quantity == "all":
+            return matched == total
+        return matched >= int(quantity)
 
     def _selector_hit(self, selector: str, hits: Dict[str, int]) -> bool:
         if selector.endswith("*"):
@@ -370,6 +394,7 @@ class YaraEngine:
                 severity = Severity(str(meta.get("severity", "high")).lower())
             except ValueError:
                 severity = Severity.HIGH
+            confidence = str(meta.get("confidence", "high")).lower()
             detections.append(
                 Detection(
                     name=str(meta.get("threat_name") or match["rule"]),
@@ -377,6 +402,7 @@ class YaraEngine:
                     severity=severity,
                     description=str(meta.get("description") or f"YARA rule {match['rule']} matched"),
                     score=int(meta.get("score", 85)),
+                    confidence="low" if confidence == "low" else "high",
                     evidence={
                         "rule": match["rule"],
                         "author": meta.get("author", ""),

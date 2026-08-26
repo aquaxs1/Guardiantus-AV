@@ -36,7 +36,7 @@ gracefully without them — nothing silently stops working.
 
 **Protection**
 - **Real-time protection** — event-driven via `watchdog` (inotify / FSEvents / Win32), with a stdlib polling fallback so it works on a bare Python install.
-- **Quarantine vault** — confirmed threats are moved out of reach and stored inert; every entry restores byte-for-byte, and restoring also tells the engine to leave that file alone from then on. Heuristic suspicions are reported rather than moved unless you ask otherwise.
+- **Quarantine vault** — confirmed threats are moved out of reach and stored inert; every entry restores byte-for-byte, and restoring also tells the engine to leave that file alone from then on. Heuristic suspicions are reported rather than moved: the detection panel then offers to quarantine or allow them, and everything you have allowed is listed under Settings so you can put a file back in scope.
 - **Scan types** — quick (high-risk locations), full (every mounted drive), custom paths, and single files. Pausable, resumable, cancellable, with live progress.
 
 **Maintenance**
@@ -106,6 +106,8 @@ guardiantus config set service.port 9000
 | `guardiantus check FILE...` | Inspect single files without recording a scan session |
 | `guardiantus protect start\|stop\|status` | Control real-time protection |
 | `guardiantus quarantine list\|restore\|delete\|empty` | Manage the vault |
+| `guardiantus detections [list\|quarantine ID\|allow ID]` | See findings and settle the open ones |
+| `guardiantus allow list\|remove` | See or clear the files you have vouched for |
 | `guardiantus update signatures` | Refresh the signature database |
 | `guardiantus update programs` | Find outdated software |
 | `guardiantus schedule list\|enable\|disable\|run` | Manage scheduled tasks |
@@ -174,7 +176,7 @@ Notable settings:
 | `scanning.heuristic_threshold` | `60` | Lower is more aggressive |
 | `scanning.auto_quarantine` | `true` | Quarantine what scans identify |
 | `scanning.quarantine_suspicious` | `false` | Also move heuristic-only hits |
-| `scanning.trusted_hashes` | `[]` | Digests of restored files, never flagged again |
+| `scanning.trusted_hashes` | `[]` | Digests of restored or allowed files, never flagged again |
 | `scanning.worker_threads` | `0` | 0 picks a number from your CPU count |
 | `scanning.excluded_paths` | `[]` | Never scanned |
 | `realtime.action` | `quarantine` | `quarantine` or `report` |

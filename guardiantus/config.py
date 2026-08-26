@@ -13,7 +13,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Set
+from typing import Any, Callable, Dict, Iterable, List, Set
 
 from . import paths
 
@@ -112,6 +112,15 @@ def default_watch_paths() -> List[str]:
     return [str(p) for p in hits]
 
 
+#: Immutable settings are handed out as-is; only containers need copying, and
+#: the scanner reads several of these for every single file.
+_IMMUTABLE = (str, int, float, bool, bytes, type(None))
+
+
+def _copy(value: Any) -> Any:
+    return value if isinstance(value, _IMMUTABLE) else copy.deepcopy(value)
+
+
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     out = copy.deepcopy(base)
     for key, value in override.items():
@@ -128,7 +137,29 @@ class Config:
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or paths.config_file()
         self._data: Dict[str, Any] = copy.deepcopy(DEFAULTS)
+        # Bumped on every write. The derived views below are consulted once
+        # per scanned file, so they are memoised against it rather than
+        # rebuilt from a deep copy several hundred thousand times a scan.
+        self._version = 0
+        self._derived: Dict[str, Any] = {}
         self.load()
+
+    def _bump(self) -> None:
+        with _LOCK:
+            self._version += 1
+            self._derived.clear()
+
+    @property
+    def version(self) -> int:
+        """Increments whenever the configuration changes."""
+        with _LOCK:
+            return self._version
+
+    def _memoise(self, key: str, build: "Callable[[], Any]") -> Any:
+        with _LOCK:
+            if key not in self._derived:
+                self._derived[key] = build()
+            return self._derived[key]
 
     # ------------------------------------------------------------------ io
     def load(self) -> Dict[str, Any]:
@@ -140,6 +171,8 @@ class Config:
                     stored = {}
                 if isinstance(stored, dict):
                     self._data = _deep_merge(DEFAULTS, stored)
+            self._version += 1
+            self._derived.clear()
             return self._data
 
     def save(self) -> None:
@@ -159,19 +192,20 @@ class Config:
         with _LOCK:
             bucket = self._data.get(section, {})
             if key in bucket:
-                return copy.deepcopy(bucket[key])
-            fallback = DEFAULTS.get(section, {}).get(key, default)
-            return copy.deepcopy(fallback)
+                return _copy(bucket[key])
+            return _copy(DEFAULTS.get(section, {}).get(key, default))
 
     def set(self, section: str, key: str, value: Any) -> None:
         with _LOCK:
             self._data.setdefault(section, {})[key] = value
+        self._bump()
         self.save()
 
     def update(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         """Merge a (possibly partial) configuration document and persist it."""
         with _LOCK:
             self._data = _deep_merge(self._data, patch)
+        self._bump()
         self.save()
         return self.data
 
@@ -181,21 +215,31 @@ class Config:
         return list(configured) if configured else default_watch_paths()
 
     def excluded_paths(self) -> List[Path]:
-        out: List[Path] = []
-        for raw in self.get("scanning", "excluded_paths") or []:
-            try:
-                out.append(Path(raw).expanduser().resolve())
-            except OSError:
-                continue
-        return out
+        def build() -> List[Path]:
+            out: List[Path] = []
+            for raw in self.get("scanning", "excluded_paths") or []:
+                try:
+                    out.append(Path(raw).expanduser().resolve())
+                except OSError:
+                    continue
+            return out
+
+        return self._memoise("excluded_paths", build)
+
+    def excluded_path_prefixes(self) -> List[str]:
+        """The same roots, normalised for cheap prefix comparison."""
+        return self._memoise(
+            "excluded_path_prefixes",
+            lambda: [os.path.normcase(str(path)) for path in self.excluded_paths()],
+        )
 
     def trusted_hashes(self) -> Set[str]:
         """Digests the user has explicitly allowed."""
-        return {
+        return self._memoise("trusted_hashes", lambda: {
             str(digest).lower()
             for digest in (self.get("scanning", "trusted_hashes") or [])
             if digest
-        }
+        })
 
     def trust_hash(self, digest: str) -> None:
         """Remember that the user considers this exact file harmless."""
@@ -209,13 +253,27 @@ class Config:
                 return
             current.append(digest)
             bucket["trusted_hashes"] = current[-MAX_TRUSTED_HASHES:]
+        self._bump()
         self.save()
 
+    def revoke_hash(self, digest: str) -> bool:
+        """Take a digest off the allow-list. Returns whether it was on it."""
+        digest = str(digest).lower()
+        with _LOCK:
+            bucket = self._data.setdefault("scanning", {})
+            current = [str(h).lower() for h in bucket.get("trusted_hashes") or []]
+            if digest not in current:
+                return False
+            bucket["trusted_hashes"] = [h for h in current if h != digest]
+        self._bump()
+        self.save()
+        return True
+
     def excluded_extensions(self) -> Iterable[str]:
-        return {
+        return self._memoise("excluded_extensions", lambda: {
             ext.lower() if ext.startswith(".") else f".{ext.lower()}"
             for ext in (self.get("scanning", "excluded_extensions") or [])
-        }
+        })
 
 
 _INSTANCE: Config | None = None

@@ -298,11 +298,20 @@ def test_quarantine_rejects_missing_file(tmp_path):
 
 
 def test_scan_with_auto_quarantine(samples):
+    """Identified threats are moved; suspicions are reported where they lie."""
     job = ScanJob(targets=[samples], scan_type=ScanType.CUSTOM, auto_quarantine=True)
     job.run()
     assert not (samples / "eicar.com").exists()
     assert (samples / "clean.txt").exists()
-    assert all(t.quarantined for t in job.threats)
+
+    for threat in job.threats:
+        if threat.verdict is Verdict.MALICIOUS:
+            assert threat.quarantined, f"{threat.path} was identified but left in place"
+            assert not Path(threat.path).exists()
+        else:
+            assert not threat.quarantined, f"{threat.path} was only suspected but taken away"
+            assert Path(threat.path).exists()
+    assert any(t.verdict is Verdict.MALICIOUS for t in job.threats)
 
 
 # -------------------------------------------------------------- realtime

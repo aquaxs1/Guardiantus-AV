@@ -60,6 +60,18 @@ entropy, an embedded base64 blob, hardcoded URLs, an import of
 `VirtualAllocEx`. A detection needs at least one primary finding; supporting
 ones only add weight to it, and can never raise an alarm by themselves.
 
+A YARA rule can also declare `confidence = "low"`. Some behaviour cannot be
+told apart from the outside — a profile importer reads other browsers' stores
+just like a stealer does, and an article about ransomware quotes the note
+verbatim — so those rules cap their verdict at `suspicious`. The file is
+reported and left where it is instead of being moved to the vault.
+
+Scans and real-time protection only quarantine what a signature or a YARA rule
+identified. A heuristic hit is an inference, and inferences are reported:
+`POST /api/detections/{id}/quarantine` and `.../allow` are how the user
+resolves one afterwards. Allowing writes the digest to
+`scanning.trusted_hashes`, which `scan_file` checks straight after hashing.
+
 Findings are then deduplicated by `(name, source)` and folded into one verdict:
 
 | Verdict | When |

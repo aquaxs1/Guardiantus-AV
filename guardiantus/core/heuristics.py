@@ -129,10 +129,17 @@ PACKER_MARKERS = [
     (b"VMProtect", "VMProtect"), (b".petite", "Petite"), (b"FSG!", "FSG"),
 ]
 
-RANSOM_NOTE_HINTS = [
+#: A note claims the encryption happened...
+RANSOM_CLAIMS = [
     b"your files have been encrypted", b"all your files are encrypted",
-    b"to decrypt your files", b"bitcoin wallet", b"tor browser",
-    b"recover your data", b"decryption key",
+    b"to decrypt your files", b"your data has been encrypted",
+]
+#: ...and names a way to pay or make contact. Either half on its own is
+#: ordinary: a backup note mentions a bitcoin wallet and a decryption key
+#: without anybody having been attacked.
+RANSOM_DEMANDS = [
+    b"bitcoin wallet", b"tor browser", b"recover your data",
+    b"decryption key", b"contact us", b"payment",
 ]
 
 _IPV4 = re.compile(rb"\b(?:\d{1,3}\.){3}\d{1,3}\b")
@@ -393,10 +400,15 @@ def analyse(
         findings.append(Finding("PDF with auto-run JavaScript", 40, Severity.HIGH, True))
 
     lowered = data[:200_000].lower()
-    note_hits = [hint.decode() for hint in RANSOM_NOTE_HINTS if hint in lowered]
-    if len(note_hits) >= 2:
+    claims = [hint.decode() for hint in RANSOM_CLAIMS if hint in lowered]
+    demands = [hint.decode() for hint in RANSOM_DEMANDS if hint in lowered]
+    if claims and demands:
+        # High, not critical: nothing in the words separates a real note from
+        # an article about ransomware, and critical would make this file
+        # malicious and therefore something the scanner takes away.
         findings.append(
-            Finding("Ransom-note text", 70, Severity.CRITICAL, True, {"phrases": note_hits[:3]})
+            Finding("Ransom-note text", 70, Severity.HIGH, True,
+                    {"phrases": (claims + demands)[:3]})
         )
 
     # --- tiny droppers -------------------------------------------------

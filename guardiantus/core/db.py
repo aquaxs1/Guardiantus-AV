@@ -18,6 +18,9 @@ from .. import paths
 
 SCHEMA_VERSION = 1
 
+#: Conservative cap on bound parameters per statement -- see describe_digests.
+_MAX_SQL_PARAMS = 500
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -276,6 +279,51 @@ class Database:
 
     def count_detections(self, since: float = 0.0) -> int:
         row = self.query_one("SELECT COUNT(*) AS n FROM detections WHERE ts >= ?", (since,))
+        return int(row["n"]) if row else 0
+
+    def get_detection(self, detection_id: int) -> Optional[Dict[str, Any]]:
+        row = self.query_one("SELECT * FROM detections WHERE id = ?", (detection_id,))
+        if row:
+            row["payload"] = _loads(row.get("payload"), {})
+        return row
+
+    def describe_digests(self, digests: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+        """Where each digest was last seen, so an allow-list can name files.
+
+        The allow-list itself only stores hashes; the history is what turns
+        one back into "the file you restored from Downloads".
+        """
+        wanted = [d for d in digests if d]
+        if not wanted:
+            return {}
+
+        rows: List[Dict[str, Any]] = []
+        # Bound the IN clause: SQLite before 3.32 refuses more than 999
+        # parameters, and the allow-list is allowed to hold a thousand.
+        for start in range(0, len(wanted), _MAX_SQL_PARAMS):
+            batch = wanted[start:start + _MAX_SQL_PARAMS]
+            placeholders = ",".join("?" for _ in batch)
+            rows += self.query(
+                f"SELECT sha256, path, ts FROM detections WHERE sha256 IN ({placeholders})",
+                batch,
+            )
+            rows += self.query(
+                "SELECT sha256, original_path AS path, quarantined_at AS ts FROM quarantine "
+                f"WHERE sha256 IN ({placeholders})",
+                batch,
+            )
+        seen: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            digest = str(row["sha256"]).lower()
+            if digest not in seen or float(row["ts"] or 0) > float(seen[digest]["ts"] or 0):
+                seen[digest] = {"path": row["path"], "ts": row["ts"]}
+        return seen
+
+    def count_unresolved_detections(self) -> int:
+        """Threats that were reported and are still sitting where they were."""
+        row = self.query_one(
+            "SELECT COUNT(*) AS n FROM detections WHERE handled = 'reported'"
+        )
         return int(row["n"]) if row else 0
 
     def mark_detections_restored(self, path: str) -> None:

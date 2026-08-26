@@ -94,7 +94,7 @@ class FileScanner:
         self.signatures = signatures or get_signatures()
         self.yara = yara or get_yara()
         # Resolved once: this is consulted for every file of every scan.
-        self._own_paths = paths.self_paths()
+        self._own_prefixes = [os.path.normcase(str(path)) for path in paths.self_paths()]
 
     # ------------------------------------------------------------- policies
     def _max_file_size(self) -> int:
@@ -108,14 +108,19 @@ class FileScanner:
 
         if resolved.suffix.lower() in self.config.excluded_extensions():
             return True
-        for excluded in self.config.excluded_paths():
-            if _is_within(resolved, excluded):
-                return True
+
+        # Compared as normalised strings rather than through Path.parents:
+        # this runs for every file of every scan, and walking the parents of a
+        # deep path against every excluded root costs more than the rest of
+        # scanning a small file put together.
+        candidate = os.path.normcase(str(resolved))
+        if any(_is_within(candidate, root) for root in self.config.excluded_path_prefixes()):
+            return True
         # Never scan ourselves.  The vault holds live payloads, the signature
         # database is a list of malware strings and the YARA rules spell out
         # the very patterns they hunt for -- scanning any of it finds
         # "malware" every single time.
-        return any(_is_within(resolved, own) for own in self._own_paths)
+        return any(_is_within(candidate, own) for own in self._own_prefixes)
 
     # ---------------------------------------------------------------- entry
     def scan_file(self, path: Path | str, deep: bool = True) -> ScanResult:
@@ -331,18 +336,35 @@ class FileScanner:
 
     @staticmethod
     def _verdict_for(detections: Sequence[Detection]) -> Verdict:
+        """Confirmed threat, or something worth telling the user about?
+
+        A signature or YARA hit normally names a specific threat, which makes
+        the file malicious and therefore something to move.  Rules that
+        describe behaviour they cannot pin down say so with
+        ``confidence = "low"`` and only ever reach *suspicious*, so an
+        imprecise rule reports rather than takes a file away.
+        """
         if not detections:
             return Verdict.CLEAN
-        if any(d.source in (DetectionSource.SIGNATURE, DetectionSource.YARA) for d in detections):
+        identified = (DetectionSource.SIGNATURE, DetectionSource.YARA)
+        if any(d.source in identified and d.confidence != "low" for d in detections):
             return Verdict.MALICIOUS
-        if any(d.severity is Severity.CRITICAL for d in detections):
+        if any(d.severity is Severity.CRITICAL and d.confidence != "low" for d in detections):
             return Verdict.MALICIOUS
         return Verdict.SUSPICIOUS
 
 
-def _is_within(path: Path, ancestor: Path) -> bool:
-    """Is ``path`` the same as, or below, ``ancestor``?"""
-    return path == ancestor or ancestor in path.parents
+def _is_within(path: str, ancestor: str) -> bool:
+    """Is ``path`` the same as, or below, ``ancestor``?
+
+    Both are expected to be ``os.path.normcase``-normalised, which is what
+    keeps the comparison case-insensitive on Windows.
+    """
+    if path == ancestor:
+        return True
+    if not ancestor.endswith(os.sep):
+        ancestor += os.sep
+    return path.startswith(ancestor)
 
 
 def _is_path_traversal(name: str) -> bool:
@@ -493,6 +515,11 @@ class ScanJob:
 
     # ---------------------------------------------------------------- work
     def run(self) -> ScanProgress:
+        # Stopping a scan between start() and here would otherwise be undone
+        # by this line, leaving the dashboard showing it as running until the
+        # (immediately empty) walk finishes.
+        if self._cancel.is_set():
+            return self.progress
         self.progress.state = ScanState.RUNNING
         self.progress.started_at = time.time()
         self.db.upsert_scan(self.progress.to_dict())

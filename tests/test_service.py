@@ -236,6 +236,123 @@ def test_status_handler(app):
     assert payload["system"]["app"] == "Guardiantus AV"
 
 
+# ------------------------------------------------- acting on a detection
+
+
+def _reported_detection(app, tmp_path):
+    """Scan a heuristic-only threat and return the detection it reported."""
+    target = tmp_path / "READ_ME.txt"
+    target.write_text(
+        "All your files are encrypted. Send bitcoin to our wallet.\n"
+        "Your decryption key is safe with us.\n"
+    )
+    app.start_scan("custom", targets=[str(tmp_path)], auto_quarantine=True).join(timeout=60)
+    reported = [d for d in app.detections() if d["handled"] == "reported"]
+    assert reported, "a suspicion should be reported rather than moved"
+    return target, reported[0]
+
+
+def _act(app, detection_id, action):
+    return api.act_on_detection(
+        app,
+        api.Request(
+            method="POST",
+            path="",
+            params={"detection_id": str(detection_id), "action": action},
+        ),
+    )
+
+
+def test_a_reported_detection_can_be_quarantined_after_the_fact(app, tmp_path):
+    target, detection = _reported_detection(app, tmp_path)
+    assert target.exists()
+
+    status, payload = _act(app, detection["id"], "quarantine")
+    assert status == 200 and payload["quarantined"]
+    assert not target.exists()
+    assert len(app.quarantine.list_entries()) == 1
+
+
+def test_a_reported_detection_can_be_allowed(app, tmp_path):
+    target, detection = _reported_detection(app, tmp_path)
+
+    status, payload = _act(app, detection["id"], "allow")
+    assert status == 200 and payload["allowed"]
+    assert target.exists()
+
+    job = app.start_scan("custom", targets=[str(tmp_path)])
+    job.join(timeout=60)
+    assert job.progress.threats_found == 0, "an allowed file must stop being flagged"
+
+
+def test_the_dashboard_asks_about_files_left_in_place(app, tmp_path):
+    """Reporting instead of quarantining only works if the user is told."""
+    before = {issue["id"] for issue in app.protection_status()["issues"]}
+    assert "detections-unresolved" not in before
+
+    _, detection = _reported_detection(app, tmp_path)
+    issues = {i["id"]: i for i in app.protection_status()["issues"]}
+    assert "detections-unresolved" in issues
+    assert issues["detections-unresolved"]["action"] == "review_detections"
+
+    _act(app, detection["id"], "allow")
+    after = {issue["id"] for issue in app.protection_status()["issues"]}
+    assert "detections-unresolved" not in after, "deciding must clear the prompt"
+
+
+def test_quarantining_an_allowed_file_keeps_its_name(app, tmp_path):
+    """The allow-list short-circuits the re-scan, so the name has to survive."""
+    _, detection = _reported_detection(app, tmp_path)
+    _act(app, detection["id"], "allow")
+    app.db.mark_detection_handled(detection["id"], "reported")
+
+    _act(app, detection["id"], "quarantine")
+    entry = app.quarantine.list_entries()[0]
+    assert entry["threat_name"] == detection["threat_name"]
+    assert entry["threat_name"] != "Unknown"
+
+
+def test_acting_on_a_detection_reports_real_problems(app, tmp_path):
+    _, detection = _reported_detection(app, tmp_path)
+
+    assert _act(app, 999_999, "allow")[0] == 404
+    assert _act(app, detection["id"], "frobnicate")[0] == 400
+    assert _act(app, "not-a-number", "allow")[0] == 400
+
+
+def test_allowlist_names_the_file_and_can_be_revoked(app, tmp_path):
+    target, detection = _reported_detection(app, tmp_path)
+    _act(app, detection["id"], "allow")
+
+    status, payload = api.get_allowlist(app, api.Request(method="GET", path="/api/allowlist"))
+    assert status == 200
+    entry = payload["entries"][0]
+    assert entry["path"] == str(target), "the allow-list must name the file, not just a digest"
+
+    status, _ = api.delete_allowlist_entry(
+        app, api.Request(method="DELETE", path="", params={"sha256": entry["sha256"]}),
+    )
+    assert status == 200
+    assert api.get_allowlist(app, api.Request(method="GET", path=""))[1]["entries"] == []
+
+    job = app.start_scan("custom", targets=[str(tmp_path)])
+    job.join(timeout=60)
+    assert job.progress.threats_found == 1, "revoking must put the file back in scope"
+
+
+def test_revoking_something_not_allowed_is_a_404(app):
+    status, _ = api.delete_allowlist_entry(
+        app, api.Request(method="DELETE", path="", params={"sha256": "0" * 64}),
+    )
+    assert status == 404
+
+
+def test_detection_action_route_resolves():
+    handler, params = api.resolve("POST", "/api/detections/12/quarantine")
+    assert handler is api.act_on_detection
+    assert params == {"detection_id": "12", "action": "quarantine"}
+
+
 def test_scan_handler_rejects_bad_type(app):
     status, payload = api.post_scan(
         app, api.Request(method="POST", path="/api/scans", body={"type": "telepathic"})
@@ -387,6 +504,21 @@ def test_cli_check_reports_threats(samples, capsys):
     assert "EICAR" in capsys.readouterr().out
 
 
+def test_cli_distinguishes_a_suspicion_from_a_threat(samples, tmp_path, capsys):
+    """The words have to differ: one file was moved, the other was not."""
+    from guardiantus.cli import main
+
+    note = tmp_path / "READ_ME.txt"
+    note.write_text(
+        "All your files are encrypted. Send bitcoin to our wallet.\n"
+        "Your decryption key is safe with us.\n"
+    )
+    main(["check", str(samples / "eicar.com"), str(note)])
+    out = capsys.readouterr().out
+    assert "THREAT" in out and "EICAR" in out
+    assert "SUSPECT" in out and "left in place" in out
+
+
 def test_cli_check_clean_file(samples, capsys):
     from guardiantus.cli import main
 
@@ -408,6 +540,41 @@ def test_cli_scan_command(samples, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["state"] == "completed"
     assert payload["threats_found"] >= 4
+
+
+def test_cli_can_settle_a_reported_detection(tmp_path, capsys):
+    """The terminal has to reach the same decisions the dashboard offers."""
+    from guardiantus.cli import main
+
+    (tmp_path / "READ_ME.txt").write_text(
+        "All your files are encrypted. Send bitcoin to our wallet.\n"
+        "Your decryption key is safe with us.\n"
+    )
+    main(["--json", "scan", str(tmp_path), "--quarantine"])
+    capsys.readouterr()
+
+    assert main(["--json", "detections"]) == 0
+    reported = [
+        d for d in json.loads(capsys.readouterr().out)["detections"]
+        if d["handled"] == "reported"
+    ]
+    assert reported, "a suspicion should be reported rather than moved"
+
+    assert main(["--json", "detections", "allow", str(reported[0]["id"])]) == 0
+    assert json.loads(capsys.readouterr().out)["allowed"]
+
+    assert main(["--json", "allow", "list"]) == 0
+    assert json.loads(capsys.readouterr().out)["entries"], "allowing must show up on the list"
+
+    assert main(["--json", "scan", str(tmp_path)]) == 0, "an allowed file must not be flagged"
+    capsys.readouterr()
+
+
+def test_cli_rejects_an_unknown_detection(capsys):
+    from guardiantus.cli import main
+
+    assert main(["detections", "quarantine", "999999"]) == 2
+    assert "unknown detection" in capsys.readouterr().err
 
 
 def test_cli_status_and_info(capsys):

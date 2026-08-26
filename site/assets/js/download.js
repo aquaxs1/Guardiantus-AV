@@ -8,7 +8,7 @@
   const RELEASES = "https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download";
 
   const BUILDS = {
-    "windows-x64": { label: "Windows", sub: "64-bit, Windows 10 or newer", file: "guardiantus-av-windows-x64.zip" },
+    "windows-x64": { label: "Windows", sub: "64-bit, Windows 10 or newer", file: "guardiantus-av-windows-x64.exe" },
     "macos-arm64": { label: "macOS", sub: "Apple Silicon (M1 and newer)", file: "guardiantus-av-macos-arm64.zip" },
     "linux-x64": { label: "Linux", sub: "64-bit, most distributions", file: "guardiantus-av-linux-x64.tar.gz" },
   };

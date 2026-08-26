@@ -375,6 +375,21 @@ function severityBadge(severity) {
   return el("span", { class: `badge ${tone ? `badge--${tone}` : ""}`, text: severity });
 }
 
+const HANDLED_LABELS = {
+  reported: "left in place",
+  quarantined: "quarantined",
+  restored: "put back",
+  allowed: "allowed",
+  none: "nothing done",
+};
+
+const HANDLED_TONES = {
+  quarantined: "badge--ok",
+  allowed: "badge--ok",
+  restored: "badge--ok",
+  reported: "badge--warn",
+};
+
 function detectionTable(detections) {
   return el("table", { class: "table" },
     el("thead", {}, el("tr", {},
@@ -389,8 +404,9 @@ function detectionTable(detections) {
       el("td", {}, el("span", { class: "path", title: detection.path, text: shortPath(detection.path, 72) })),
       el("td", {}, severityBadge(detection.severity)),
       el("td", {}, el("span", {
-        class: `badge ${detection.handled === "quarantined" ? "badge--ok" : ""}`,
-        text: detection.handled,
+        class: `badge ${HANDLED_TONES[detection.handled] || ""}`,
+        title: detection.handled === "reported" ? "Click the row to quarantine or allow it" : "",
+        text: HANDLED_LABELS[detection.handled] || detection.handled,
       })),
       el("td", { text: when(detection.ts) }),
     ))),
@@ -401,24 +417,60 @@ function showDetectionDetail(detection) {
   const payload = detection.payload || {};
   const rows = [
     ["Threat", detection.threat_name || "Unknown"],
-    ["Verdict", detection.verdict],
+    ["Verdict", detection.verdict === "malicious" ? "Confirmed threat" : "Suspicious"],
     ["Severity", detection.severity],
     ["File", detection.path],
     ["SHA-256", detection.sha256 || "—"],
     ["Size", bytes(payload.size || 0)],
-    ["Detected", new Date(detection.ts * 1000).toLocaleString()],
-    ["Handling", detection.handled],
+    ["Found", new Date(detection.ts * 1000).toLocaleString()],
+    ["Status", HANDLED_LABELS[detection.handled] || detection.handled],
   ];
+
+  // A suspicion is reported and left alone, which is only useful if the
+  // user can then act on it. Anything already dealt with just shows detail.
+  const actions = detection.handled === "reported" ? [
+    el("button", {
+      class: "btn btn--danger",
+      text: "Quarantine",
+      onclick: () => { closeModal(); actOnDetection(detection, "quarantine"); },
+    }),
+    el("button", {
+      class: "btn",
+      text: "It's safe, allow it",
+      onclick: () => { closeModal(); actOnDetection(detection, "allow"); },
+    }),
+  ] : [];
+
   openModal(detection.threat_name || "Detection", [
     el("dl", { class: "kv" }, ...rows.flatMap(([key, value]) => [
       el("dt", { text: key }),
       el("dd", {}, el("span", { class: key === "File" || key === "SHA-256" ? "mono" : "", text: String(value) })),
     ])),
     ...(payload.detections || []).map((item) => el("div", { class: "detection" },
-      el("div", { class: "detection__name" }, `${item.name} `, el("span", { class: "badge", text: item.source })),
+      el("div", { class: "detection__name" }, `${item.name} `,
+        el("span", { class: "badge", text: item.source }),
+        item.confidence === "low" ? el("span", { class: "badge badge--warn", text: "unconfirmed" }) : null),
       el("div", { class: "detection__desc", text: item.description }),
     )),
-  ]);
+    detection.handled === "reported"
+      ? el("p", { class: "field__hint mt-3" },
+          "This was found by behaviour, not by a known signature, so the file was "
+          + "left where it is. Allowing it means Guardiantus will not flag it again.")
+      : null,
+  ], actions);
+}
+
+async function actOnDetection(detection, action) {
+  try {
+    await api(`/api/detections/${detection.id}/${action}`, { method: "POST" });
+    toast(
+      action === "allow" ? "File allowed" : "Moved to quarantine",
+      action === "allow" ? "It will not be flagged again" : baseName(detection.path),
+      action === "allow" ? "ok" : "warn",
+    );
+    refreshDashboard();
+    if (state.view === "quarantine") loadQuarantine();
+  } catch (error) { fail(error); }
 }
 
 /* ------------------------------------------------------------------ scans */
@@ -1002,6 +1054,49 @@ $("#event-filter").addEventListener("change", loadEvents);
 
 /* --------------------------------------------------------------- settings */
 
+/* Restoring a file, or allowing a reported one, adds its digest here. Without
+   somewhere to see that list, a mis-click is permanent and invisible. */
+async function loadAllowlist() {
+  try {
+    const { entries } = await api("/api/allowlist");
+    const target = $("#allowlist");
+    if (!entries.length) {
+      target.replaceChildren(emptyState(
+        "Nothing is on the allow-list. Files you restore or allow end up here.", "check"));
+      return;
+    }
+    target.replaceChildren(el("table", { class: "table" },
+      el("thead", {}, el("tr", {},
+        el("th", { text: "File" }), el("th", { text: "Fingerprint" }),
+        el("th", { text: "Last seen" }), el("th", { text: "" }),
+      )),
+      el("tbody", {}, ...entries.map((entry) => el("tr", {},
+        el("td", {}, entry.path
+          ? el("span", { class: "path", title: entry.path, text: shortPath(entry.path, 60) })
+          : el("span", { class: "field__hint", text: "unknown file" })),
+        el("td", {}, el("span", { class: "mono", text: `${entry.sha256.slice(0, 16)}…` })),
+        el("td", { text: entry.last_seen ? when(entry.last_seen) : "—" }),
+        el("td", {}, el("button", {
+          class: "btn btn--sm",
+          title: "Check this file again in future scans",
+          text: "Scan it again",
+          onclick: () => revokeAllowed(entry.sha256),
+        })),
+      ))),
+    ));
+  } catch (error) { fail(error); }
+}
+
+async function revokeAllowed(digest) {
+  try {
+    await api(`/api/allowlist/${digest}`, { method: "DELETE" });
+    toast("Back to normal", "This file will be checked again", "ok");
+    loadAllowlist();
+  } catch (error) { fail(error); }
+}
+
+$("#refresh-allowlist").addEventListener("click", loadAllowlist);
+
 async function loadSettings() {
   try {
     const [config, system] = await Promise.all([api("/api/config"), api("/api/system")]);
@@ -1034,6 +1129,7 @@ async function loadSettings() {
     $("#about-info").replaceChildren(...rows.flatMap(([key, value]) => [
       el("dt", { text: key }), el("dd", {}, el("span", { class: "mono", text: String(value) })),
     ]));
+    loadAllowlist();
   } catch (error) { fail(error); }
 }
 

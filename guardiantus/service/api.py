@@ -329,6 +329,40 @@ def get_detections(app: Application, request: Request) -> Response:
     return 200, {"detections": app.detections(limit=request.qint("limit", 100))}
 
 
+@route("POST", "/api/detections/{detection_id}/{action}")
+def act_on_detection(app: Application, request: Request) -> Response:
+    """Quarantine or allow a threat that was reported and left in place."""
+    try:
+        detection_id = int(request.params["detection_id"])
+    except ValueError:
+        return 400, {"error": "detection id must be a number"}
+    try:
+        return 200, app.act_on_detection(detection_id, request.params["action"])
+    except LookupError as exc:
+        return 404, {"error": str(exc)}
+    except FileNotFoundError as exc:
+        return 409, {"error": str(exc)}
+    except QuarantineError as exc:
+        return 400, {"error": str(exc)}
+    except ValueError as exc:
+        return 400, {"error": str(exc)}
+
+
+# ---------------------------------------------------------------- allow-list
+
+
+@route("GET", "/api/allowlist")
+def get_allowlist(app: Application, _request: Request) -> Response:
+    return 200, {"entries": app.allowlist()}
+
+
+@route("DELETE", "/api/allowlist/{sha256}")
+def delete_allowlist_entry(app: Application, request: Request) -> Response:
+    if not app.revoke_allowed(request.params["sha256"]):
+        return 404, {"error": "not on the allow-list"}
+    return 200, {"removed": True, "sha256": request.params["sha256"]}
+
+
 # ------------------------------------------------------------------- config
 
 

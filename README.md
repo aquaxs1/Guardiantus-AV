@@ -106,6 +106,7 @@ guardiantus config set service.port 9000
 | `guardiantus check FILE...` | Inspect single files without recording a scan session |
 | `guardiantus protect start\|stop\|status` | Control real-time protection |
 | `guardiantus quarantine list\|restore\|delete\|empty` | Manage the vault |
+| `guardiantus allow list\|remove` | See or clear the files you have vouched for |
 | `guardiantus update signatures` | Refresh the signature database |
 | `guardiantus update programs` | Find outdated software |
 | `guardiantus schedule list\|enable\|disable\|run` | Manage scheduled tasks |

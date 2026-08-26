@@ -278,6 +278,39 @@ class Database:
         row = self.query_one("SELECT COUNT(*) AS n FROM detections WHERE ts >= ?", (since,))
         return int(row["n"]) if row else 0
 
+    def get_detection(self, detection_id: int) -> Optional[Dict[str, Any]]:
+        row = self.query_one("SELECT * FROM detections WHERE id = ?", (detection_id,))
+        if row:
+            row["payload"] = _loads(row.get("payload"), {})
+        return row
+
+    def describe_digests(self, digests: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+        """Where each digest was last seen, so an allow-list can name files.
+
+        The allow-list itself only stores hashes; the history is what turns
+        one back into "the file you restored from Downloads".
+        """
+        wanted = [d for d in digests if d]
+        if not wanted:
+            return {}
+        placeholders = ",".join("?" for _ in wanted)
+        rows = self.query(
+            f"SELECT sha256, path, ts FROM detections WHERE sha256 IN ({placeholders}) "
+            "ORDER BY ts DESC",
+            wanted,
+        )
+        rows += self.query(
+            f"SELECT sha256, original_path AS path, quarantined_at AS ts FROM quarantine "
+            f"WHERE sha256 IN ({placeholders}) ORDER BY quarantined_at DESC",
+            wanted,
+        )
+        seen: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            digest = str(row["sha256"]).lower()
+            if digest not in seen or float(row["ts"] or 0) > float(seen[digest]["ts"] or 0):
+                seen[digest] = {"path": row["path"], "ts": row["ts"]}
+        return seen
+
     def mark_detections_restored(self, path: str) -> None:
         """Stop showing a restored file as a live threat in the detection list."""
         self.execute(

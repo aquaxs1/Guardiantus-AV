@@ -348,6 +348,40 @@ def cmd_quarantine(app: Application, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_allow(app: Application, args: argparse.Namespace) -> int:
+    """Show or clear the digests that scans skip."""
+    entries = app.allowlist()
+
+    if args.action == "list":
+        _emit({"entries": entries}, args.json)
+        if args.json:
+            return 0
+        if not entries:
+            print(paint("  Nothing is allowed. Restoring a file adds it here.", "grey"))
+            return 0
+        print(f"  {'SHA-256':<18}  {'LAST SEEN':<12}  FILE")
+        for entry in entries:
+            seen = human_time(entry["last_seen"]) if entry["last_seen"] else "—"
+            print(f"  {entry['sha256'][:16]}…  {seen:<12}  {entry['path'] or '(unknown)'}")
+        return 0
+
+    if not args.sha256:
+        print(paint("error: a SHA-256 is required", "red"), file=sys.stderr)
+        return 2
+    # Accept the abbreviated digest the list prints.
+    matches = [e["sha256"] for e in entries if e["sha256"].startswith(args.sha256.lower())]
+    if len(matches) != 1:
+        problem = "no allow-list entry matching" if not matches else "ambiguous prefix"
+        print(paint(f"error: {problem} {args.sha256!r}", "red"), file=sys.stderr)
+        return 2
+
+    app.revoke_allowed(matches[0])
+    _emit({"removed": matches[0]}, args.json)
+    if not args.json:
+        print(paint(f"  {matches[0][:16]}… will be checked again.", "yellow"))
+    return 0
+
+
 def _resolve_entry_id(app: Application, prefix: str) -> Optional[str]:
     matches = [
         entry["entry_id"]
@@ -570,6 +604,11 @@ def build_parser() -> argparse.ArgumentParser:
     quarantine.add_argument("entry_id", nargs="?", metavar="ID")
     quarantine.add_argument("--all", action="store_true", help="include restored/deleted entries")
     quarantine.set_defaults(func=cmd_quarantine)
+
+    allow = sub.add_parser("allow", help="manage files you have vouched for")
+    allow.add_argument("action", choices=["list", "remove"])
+    allow.add_argument("sha256", nargs="?", metavar="SHA256")
+    allow.set_defaults(func=cmd_allow)
 
     update = sub.add_parser("update", help="update signatures or installed programs")
     update.add_argument("target", choices=["signatures", "programs"])

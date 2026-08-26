@@ -291,6 +291,64 @@ class Application:
     def upgrade_all_programs(self, manager: str) -> Dict[str, Any]:
         return self.programs.upgrade_all(manager)
 
+    # ----------------------------------------------------------- detections
+    def act_on_detection(self, detection_id: int, action: str) -> Dict[str, Any]:
+        """Deal with a threat that was reported rather than moved.
+
+        Heuristics report instead of quarantining, which only helps if the
+        user can then act on what they were told: put the file in the vault
+        after all, or say it was a false alarm and stop being asked.
+        """
+        record = self.db.get_detection(detection_id)
+        if not record:
+            raise LookupError(f"unknown detection: {detection_id}")
+
+        path = Path(str(record["path"]))
+        if action == "allow":
+            digest = str(record.get("sha256") or "")
+            if not digest:
+                raise ValueError("this detection has no digest to allow")
+            self.config.trust_hash(digest)
+            self.db.mark_detection_handled(detection_id, "allowed")
+            self.db.add_event(
+                "info", "detection", f"Allowed {path.name}",
+                {"path": str(path), "sha256": digest},
+            )
+            return {"allowed": True, "path": str(path), "sha256": digest}
+
+        if action != "quarantine":
+            raise ValueError(f"unknown action: {action}")
+
+        if not path.is_file():
+            raise FileNotFoundError(f"no longer on disk: {path}")
+        # Re-scan rather than trusting the stored payload: the file may have
+        # changed since it was reported, and the vault entry should describe
+        # what is actually being put in it.
+        entry = self.quarantine.quarantine_file(self.scanner.scan_file(path))
+        self.db.mark_detection_handled(detection_id, "quarantined")
+        return {"quarantined": True, "entry_id": entry.entry_id, "path": str(path)}
+
+    # ------------------------------------------------------------ allow-list
+    def allowlist(self) -> List[Dict[str, Any]]:
+        """Digests the user has vouched for, with where each was last seen."""
+        digests = sorted(self.config.trusted_hashes())
+        history = self.db.describe_digests(digests)
+        return [
+            {
+                "sha256": digest,
+                "path": history.get(digest, {}).get("path", ""),
+                "last_seen": history.get(digest, {}).get("ts"),
+            }
+            for digest in digests
+        ]
+
+    def revoke_allowed(self, digest: str) -> bool:
+        removed = self.config.revoke_hash(digest)
+        if removed:
+            self.db.add_event("info", "detection", "Removed a file from the allow-list",
+                              {"sha256": digest})
+        return removed
+
     # --------------------------------------------------------------- events
     def events(self, limit: int = 100, category: str = "") -> List[Dict[str, Any]]:
         return self.db.recent_events(limit=limit, category=category)

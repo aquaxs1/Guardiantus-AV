@@ -211,6 +211,18 @@ class Config:
             bucket["trusted_hashes"] = current[-MAX_TRUSTED_HASHES:]
         self.save()
 
+    def revoke_hash(self, digest: str) -> bool:
+        """Take a digest off the allow-list. Returns whether it was on it."""
+        digest = str(digest).lower()
+        with _LOCK:
+            bucket = self._data.setdefault("scanning", {})
+            current = [str(h).lower() for h in bucket.get("trusted_hashes") or []]
+            if digest not in current:
+                return False
+            bucket["trusted_hashes"] = [h for h in current if h != digest]
+        self.save()
+        return True
+
     def excluded_extensions(self) -> Iterable[str]:
         return {
             ext.lower() if ext.startswith(".") else f".{ext.lower()}"

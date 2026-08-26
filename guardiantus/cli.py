@@ -88,9 +88,17 @@ def _emit(payload: Any, as_json: bool) -> None:
 
 def _print_result_line(result_dict: Dict[str, Any]) -> None:
     severity = Severity(result_dict.get("severity", "medium"))
-    marker = paint("THREAT", _SEVERITY_COLOUR[severity], "bold")
+    # A signature names a threat; a heuristic guesses at one, and the two
+    # deserve different words -- the second is why the file is still there.
+    identified = result_dict.get("verdict") == Verdict.MALICIOUS.value
+    # Padded before painting: the colour codes would break an f-string width.
+    marker = paint(
+        f"{'THREAT' if identified else 'SUSPECT':<7}",
+        _SEVERITY_COLOUR[severity] if identified else "yellow",
+        "bold",
+    )
     name = result_dict.get("name") or "Unknown"
-    print(f"  {marker}  {name}")
+    print(f"  {marker} {name}")
     print(f"          {paint(result_dict['path'], 'white')}")
     for detection in result_dict.get("detections", [])[:4]:
         print(
@@ -99,6 +107,8 @@ def _print_result_line(result_dict: Dict[str, Any]) -> None:
         )
     if result_dict.get("quarantined"):
         print(f"          {paint('→ quarantined', 'green')}")
+    elif not identified:
+        print(f"          {paint('→ left in place; guardiantus detections', 'grey')}")
 
 
 def _print_progress(progress: Dict[str, Any], final: bool = False) -> None:

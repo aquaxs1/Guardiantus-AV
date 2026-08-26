@@ -504,6 +504,21 @@ def test_cli_check_reports_threats(samples, capsys):
     assert "EICAR" in capsys.readouterr().out
 
 
+def test_cli_distinguishes_a_suspicion_from_a_threat(samples, tmp_path, capsys):
+    """The words have to differ: one file was moved, the other was not."""
+    from guardiantus.cli import main
+
+    note = tmp_path / "READ_ME.txt"
+    note.write_text(
+        "All your files are encrypted. Send bitcoin to our wallet.\n"
+        "Your decryption key is safe with us.\n"
+    )
+    main(["check", str(samples / "eicar.com"), str(note)])
+    out = capsys.readouterr().out
+    assert "THREAT" in out and "EICAR" in out
+    assert "SUSPECT" in out and "left in place" in out
+
+
 def test_cli_check_clean_file(samples, capsys):
     from guardiantus.cli import main
 

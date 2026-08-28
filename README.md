@@ -257,7 +257,7 @@ detections you can explain, and no telemetry.
 
 ```bash
 pip install -e ".[dev,full]"
-pytest                  # 108 tests
+pytest                  # 150 tests
 ruff check .
 ```
 

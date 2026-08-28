@@ -341,7 +341,7 @@ section.tight { padding: 48px 0; }
 /* ---------------------------------------------------------------- steps */
 
 .steps { counter-reset: step; display: grid; gap: 18px; }
-.step { display: grid; grid-template-columns: 34px 1fr; gap: 16px; align-items: start; }
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 16px; align-items: start; }
 .step__n {
   counter-increment: step; width: 34px; height: 34px;
   display: grid; place-items: center; border-radius: 50%;

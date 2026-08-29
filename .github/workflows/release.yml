@@ -33,7 +33,7 @@ jobs:
         include:
           - os: windows-latest
             name: windows-x64
-            asset_ext: exe
+            asset_ext: zip
             binary: guardiantus.exe
           - os: macos-14
             name: macos-arm64
@@ -81,6 +81,10 @@ jobs:
                   print(f'{pkg}: not available on this runner (fallback will be used)')
           "
 
+      # Windows ships zipped too, despite the extra extract step: an antivirus
+      # tool downloaded as a bare, unsigned .exe is exactly the shape engines
+      # and browsers flag hardest, and a false positive on this project's own
+      # download is the worst possible first impression.
       - name: Package (zip)
         if: matrix.asset_ext == 'zip'
         shell: bash
@@ -91,15 +95,6 @@ jobs:
           else
             zip "../guardiantus-av-${{ matrix.name }}.zip" "${{ matrix.binary }}"
           fi
-
-      - name: Package (exe)
-        # Windows gets its .exe as a direct download rather than zipped:
-        # zipping a single onefile binary buys nothing (no permissions to
-        # preserve, unlike the Unix builds) and just adds an extract step
-        # between the user and a double-click.
-        if: matrix.asset_ext == 'exe'
-        shell: bash
-        run: cp "dist/${{ matrix.binary }}" "guardiantus-av-${{ matrix.name }}.exe"
 
       - name: Package (tar.gz)
         if: matrix.asset_ext == 'tar.gz'
@@ -161,7 +156,6 @@ jobs:
           name: Guardiantus AV ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: |
-            artifacts/*.exe
             artifacts/*.zip
             artifacts/*.tar.gz
             artifacts/SHA256SUMS.txt

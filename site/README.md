@@ -31,7 +31,7 @@ security headers, including a CSP with no inline script or style.
 | `index.html` | Landing page — value, features, how it works, FAQ |
 | `features.html` | Every feature and tool, grouped by subsystem |
 | `download.html` | Desktop app downloads plus pip install options |
-| `tutorial.html` | Six-step setup plus the self-test files |
+| `setup.html` | Six-step setup plus the self-test files |
 | `demo.html` | Threat Lab — the interactive minigame |
 | `terms.html` | Terms of Use |
 

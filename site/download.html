@@ -73,7 +73,7 @@
     <nav class="site-nav" id="site-nav" aria-label="Main">
       <a href="features.html">Features</a>
       <a href="demo.html">Threat Lab</a>
-      <a href="tutorial.html">Tutorial</a>
+      <a href="setup.html">Setup</a>
       <a href="download.html">Download</a>
       <a href="https://github.com/aquaxs1/Guardiantus-AV" rel="noopener">Source</a>
     </nav>
@@ -122,8 +122,8 @@
           <div class="build-card__os">Windows</div>
           <div class="build-card__sub">64-bit, Windows 10+</div>
         </div>
-        <a class="btn btn--block" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/guardiantus-av-windows-x64.exe">
-          <svg><use href="#i-download"></use></svg>Download .exe
+        <a class="btn btn--block" href="https://github.com/aquaxs1/Guardiantus-AV/releases/latest/download/guardiantus-av-windows-x64.zip">
+          <svg><use href="#i-download"></use></svg>Download .zip
         </a>
         <div class="build-card__meta"><span>unsigned</span></div>
       </article>
@@ -168,7 +168,9 @@
     <div class="grid grid--2 gap-lg mt-4">
       <article class="card feature">
         <h3>Windows: "Windows protected your PC"</h3>
-        <p>Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+        <p>Unzip the archive, then click <strong>More info</strong> → <strong>Run anyway</strong>
+        on <code>guardiantus.exe</code>. The binary ships inside a zip because a bare, unsigned
+        antivirus <code>.exe</code> is what browsers and scanners flag hardest.</p>
       </article>
       <article class="card feature">
         <h3>macOS: "cannot be opened"</h3>
@@ -286,9 +288,9 @@ python -m guardiantus dashboard</pre></div>
   <div class="wrap">
     <div class="cta-band">
       <h2>Installed it?</h2>
-      <p>The tutorial gets you from a fresh install to protected in about two minutes.</p>
+      <p>The setup guide gets you from a fresh install to protected in about two minutes.</p>
       <div class="row center">
-        <a class="btn btn--primary btn--lg" href="tutorial.html">Open the tutorial</a>
+        <a class="btn btn--primary btn--lg" href="setup.html">Open the setup guide</a>
         <a class="btn btn--lg" href="demo.html">Try the Threat Lab</a>
       </div>
     </div>
@@ -326,8 +328,8 @@ python -m guardiantus dashboard</pre></div>
           <li><a href="download.html">Download</a></li>
           <li><a href="download.html#desktop">Desktop app</a></li>
           <li><a href="download.html#install">Install with pip</a></li>
-          <li><a href="tutorial.html">Tutorial</a></li>
-          <li><a href="tutorial.html#verify">Verify it works</a></li>
+          <li><a href="setup.html">Setup</a></li>
+          <li><a href="setup.html#verify">Verify it works</a></li>
           <li><a href="demo.html">Threat Lab</a></li>
           <li><a href="index.html#faq">FAQ</a></li>
         </ul>
@@ -351,7 +353,7 @@ python -m guardiantus dashboard</pre></div>
         <a href="index.html">Home</a>
         <a href="features.html">Features</a>
         <a href="demo.html">Threat Lab</a>
-        <a href="tutorial.html">Tutorial</a>
+        <a href="setup.html">Setup</a>
         <a href="download.html">Download</a>
         <a href="terms.html">Terms of Use</a>
       </nav>

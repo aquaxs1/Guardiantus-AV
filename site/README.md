@@ -33,7 +33,7 @@ security headers, including a CSP with no inline script or style.
 | `download.html` | Desktop app downloads plus pip install options |
 | `setup.html` | Six-step setup plus the self-test files |
 | `demo.html` | Threat Lab — the interactive minigame |
-| `terms.html` | Terms of Use |
+| `terms.html` | Terms of Use and privacy notice (`#privacy`) |
 
 ## Assets
 
@@ -67,7 +67,13 @@ Not ported: the full signature feed, native YARA, PE section parsing and archive
 unpacking. Those live in the desktop product.
 
 Everything runs client-side. No file, hash or byte leaves the browser, and the
-site sets no cookies and runs no analytics.
+site sets no cookies and runs no analytics. The only thing it stores is the
+theme, in `localStorage`, and only after a click on the theme switch.
+
+## Privacy notice
+
+`terms.html#privacy` describes what the site, the downloads and the software
+process. Update it when either one starts sending or storing something new.
 
 ## Editing
 

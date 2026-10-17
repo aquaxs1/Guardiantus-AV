@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#FFFFFF">
 <title>Terms of Use — Guardiantus AV</title>
-<meta name="description" content="Terms of use for the Guardiantus AV website and software. No warranty, no telemetry, MIT licensed.">
+<meta name="description" content="Terms of use and privacy notice for the Guardiantus AV website and software. No warranty, no telemetry, MIT licensed.">
 <meta name="color-scheme" content="light dark">
 <meta property="og:title" content="Terms of Use — Guardiantus AV">
-<meta property="og:description" content="Terms of use for the Guardiantus AV website and software. No warranty, no telemetry, MIT licensed.">
+<meta property="og:description" content="Terms of use and privacy notice for the Guardiantus AV website and software. No warranty, no telemetry, MIT licensed.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://guardiantus-av.vercel.app/assets/img/og-image.png">
 <meta property="og:url" content="https://guardiantus-av.vercel.app/terms.html">
@@ -97,7 +97,7 @@
     <span class="eyebrow">Legal</span>
     <h1>Terms of Use</h1>
     <p class="muted mt-3">
-      Last updated <time datetime="2026-08-20">20 August 2026</time>.
+      Last updated <time datetime="2026-10-16">16 October 2026</time>.
     </p>
   </div>
 </section>
@@ -153,12 +153,90 @@
         </p>
       </div>
 
-      <div>
+      <div id="privacy">
         <h2>6. Privacy</h2>
+
+        <h3 class="mt-4">Who is responsible</h3>
         <p class="muted mt-1">
-          This site sets no cookies, runs no analytics and collects no personal data. Your
-          theme preference is stored in your own browser and never leaves it. The software
-          contains no telemetry; the only outbound requests it makes are ones you configure.
+          Guardiantus AV and this site are run by Sebi. For anything about your data,
+          message <a href="https://t.me/aquaxs" rel="noopener" class="link">@aquaxs on Telegram</a>.
+        </p>
+
+        <h3 class="mt-4">This website</h3>
+        <ul class="muted legal-list">
+          <li>
+            <strong>Hosting.</strong> The site is hosted by Vercel Inc. (USA). Vercel processes
+            connection data (IP address, time, requested file, browser) to deliver the pages
+            and protect them against abuse. Legal basis: legitimate interest, Art. 6(1)(f)
+            GDPR. Vercel is certified under the EU-US Data Privacy Framework.
+          </li>
+          <li>
+            <strong>No cookies, no tracking.</strong> No analytics, no ad networks, no
+            third-party embeds. Scripts, styles and images all come from this site.
+          </li>
+          <li>
+            <strong>Theme.</strong> If you click the theme switch, your choice (light or dark)
+            is saved in your browser's <code>localStorage</code> under
+            <code>guardiantus-site-theme</code>, so the next page opens the same way. It never
+            leaves your browser, and clearing the site data removes it. Without a click,
+            nothing is stored.
+          </li>
+          <li>
+            <strong>Threat Lab.</strong> Files you drop into it are read by your browser and
+            never uploaded, stored or sent.
+          </li>
+          <li>
+            <strong>Downloads and source.</strong> The download buttons and the source links
+            go to GitHub (GitHub Inc., USA), which serves the files and receives your IP
+            address like any server. GitHub is certified under the EU-US Data Privacy
+            Framework.
+          </li>
+        </ul>
+
+        <h3 class="mt-4">The software</h3>
+        <ul class="muted legal-list">
+          <li>
+            <strong>No telemetry, no account, no cloud lookups.</strong> Files, hashes and scan
+            results are checked on your computer and never sent anywhere. Sebi receives none
+            of it.
+          </li>
+          <li>
+            <strong>What stays on your computer.</strong> Settings, scan history, detections
+            (file paths and hashes), an event log and quarantined files live in one folder:
+            <code>%PROGRAMDATA%\Guardiantus</code> on Windows,
+            <code>~/Library/Application Support/Guardiantus</code> on macOS,
+            <code>~/.local/share/guardiantus</code> on Linux. Quarantine entries older than
+            90 days (adjustable) are removed when the next file is quarantined. Deleting the
+            folder removes everything.
+          </li>
+          <li>
+            <strong>The dashboard</strong> runs on your own computer (<code>127.0.0.1</code>)
+            and cannot be reached from other devices.
+          </li>
+          <li>
+            <strong>Program updates.</strong> "Watch for outdated programs" is on by default:
+            once a day, Guardiantus asks the package managers on your computer which programs
+            are out of date (winget and Chocolatey on Windows, Homebrew on macOS, apt, dnf,
+            pacman, Flatpak and Snap on Linux, and pip). Several of them contact their own
+            package sources to answer, under their own privacy terms; Guardiantus adds
+            nothing of its own. Installing stays up to you. Turn it off in Settings &rarr;
+            Updates.
+          </li>
+          <li>
+            <strong>Signature feed.</strong> Only if you enter a feed address in Settings does
+            Guardiantus download signature sets from it; that server sees your IP address.
+            By default the built-in set is used and nothing is downloaded.
+          </li>
+        </ul>
+
+        <h3 class="mt-4">Your rights</h3>
+        <p class="muted mt-1">
+          You can ask for access to your data, correction, deletion, restriction, a copy, and
+          object to processing based on legitimate interest (Art. 15&ndash;21 GDPR) &mdash;
+          message <a href="https://t.me/aquaxs" rel="noopener" class="link">@aquaxs on Telegram</a>.
+          You can also complain to a data protection authority; in Austria that is the
+          Datenschutzbeh&ouml;rde
+          (<a href="https://www.dsb.gv.at" rel="noopener" class="link">dsb.gv.at</a>).
         </p>
       </div>
 
@@ -182,8 +260,10 @@
       <div>
         <h2>9. Contact</h2>
         <p class="muted mt-1">
-          Questions, security reports and bugs belong in the
+          Guardiantus AV is run by Sebi. Questions, security reports and bugs belong in the
           <a href="https://github.com/aquaxs1/Guardiantus-AV/issues" rel="noopener" class="link">issue tracker</a>.
+          For anything about your data, message
+          <a href="https://t.me/aquaxs" rel="noopener" class="link">@aquaxs on Telegram</a>.
         </p>
       </div>
 
@@ -237,6 +317,7 @@
           <li><a href="https://github.com/aquaxs1/Guardiantus-AV/issues" rel="noopener">Report an issue</a></li>
           <li><a href="https://github.com/aquaxs1/Guardiantus-AV/blob/main/LICENSE" rel="noopener">MIT licence</a></li>
           <li><a href="terms.html">Terms of Use</a></li>
+          <li><a href="terms.html#privacy">Privacy</a></li>
         </ul>
       </div>
     </div>
@@ -250,6 +331,7 @@
         <a href="setup.html">Setup</a>
         <a href="download.html">Download</a>
         <a href="terms.html">Terms of Use</a>
+        <a href="terms.html#privacy">Privacy</a>
       </nav>
     </div>
   </div>

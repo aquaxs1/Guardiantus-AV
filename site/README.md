@@ -1,85 +1,73 @@
 # Guardiantus AV — website
 
-Static marketing and documentation site. No framework, no build step — the same
-rule the product follows.
+The site at <https://guardiantus-av.vercel.app>. Plain HTML, CSS and JavaScript: no build
+step, no framework, nothing loaded from another host.
 
-## Deploy to Vercel
+| File | What it is |
+| --- | --- |
+| `index.html` | Landing page |
+| `features.html` | Features & tools |
+| `demo.html` | Threat Lab |
+| `setup.html` | Setup |
+| `download.html` | Download |
+| `terms.html` | Terms of Use |
+| `404.html` | Shown for any address that does not exist |
+| `assets/site.css` | This project's accent colour and anything only this site needs |
+| `assets/scene.js` | The 3D scene in the page header |
+| `assets/aqx/` | The look and behaviour shared by all AquAxs project sites |
 
-The `site/` directory is the whole deployment. Nothing is compiled.
+## The shared part
 
-**From the dashboard**
+`assets/aqx/` is the same in every project site: the stylesheet (`aqx.css`),
+the interactions (`aqx.js`), the 3D stage (`stage.js`), three.js and the three
+typefaces. It follows the portfolio at aqua.is-a.dev: a black sky with slow
+dots, glass cards that lean towards the pointer, Bodoni Moda headlines.
+Change the accent in `assets/site.css` (`--ac`, `--ac-hi`), not in `aqx.css`.
 
-1. Import the repository at [vercel.com/new](https://vercel.com/new).
-2. Set **Root Directory** to `site`.
-3. Framework preset: **Other**. Leave build and output commands empty.
-4. Deploy.
+## The 3D scene
 
-**From the CLI**
+`assets/scene.js` exports one function that builds its objects into
+`stage.frame`. The stage (`assets/aqx/stage.js`) does the rest: camera, lights,
+resizing, pointer and touch, pausing off screen. With reduced motion the scene
+is one still frame; without WebGL a glow in the accent colour stays instead.
+
+## Preview
+
+Links have no `.html` (Vercel serves `/download` from `download.html`), so open
+the folder through a server that does the same:
 
 ```bash
-cd site
-vercel --prod
+npx serve site
 ```
 
-`vercel.json` sets `cleanUrls` (so `/features` serves `features.html`) and the
-security headers, including a CSP with no inline script or style.
+## Deploy
 
-## Pages
-
-| File | Purpose |
-|---|---|
-| `index.html` | Landing page — value, features, how it works, FAQ |
-| `features.html` | Every feature and tool, grouped by subsystem |
-| `download.html` | Desktop app downloads plus pip install options |
-| `setup.html` | Six-step setup plus the self-test files |
-| `demo.html` | Threat Lab — the interactive minigame |
-| `terms.html` | Terms of Use and privacy notice (`#privacy`) |
-
-## Assets
-
-| File | Purpose |
-|---|---|
-| `assets/css/site.css` | Design system, shared with the product dashboard |
-| `assets/js/site.js` | Theme, mobile nav, copy buttons |
-| `assets/js/engine.js` | Browser port of the four detection layers |
-| `assets/js/samples.js` | Threat Lab sample files |
-| `assets/js/demo.js` | Threat Lab game logic |
-| `assets/js/download.js` | Platform detection for the download page's primary button |
-
-## Desktop app downloads
-
-`download.html` links directly to `github.com/aquaxs1/Guardiantus-AV/releases/latest/download/<asset>`,
-which always resolves to the newest published release — no version bump needed
-on this site when a new build ships. The binaries themselves come from
-`.github/workflows/release.yml` (see `packaging/README.md` in the repo root),
-built on real Windows, Intel Mac, Apple Silicon Mac and Linux runners. They are
-not code-signed, which the page explains along with how to get past the
-resulting OS warnings.
+Vercel, root directory `site`, no build command. `vercel.json` sets clean URLs
+and the security headers. The site sets no cookies and stores nothing.
 
 ## The Threat Lab
 
-`engine.js` is a real port of `guardiantus/core` — hash signatures, pattern
-signatures, the YARA rule set and the heuristic scorer. Verdicts in the game are
-computed, not scripted, which is why dropping your own file in gives a genuine
-answer.
+`demo.html` is the interactive minigame. `assets/js/engine.js` is a real port of
+`guardiantus/core` — hash signatures, pattern signatures, the YARA rule set and the
+heuristic scorer — so verdicts are computed, not scripted, and dropping your own file in gives
+a genuine answer. `assets/js/samples.js` holds the sample files and `assets/js/demo.js` the
+game. Those three files are unchanged by the redesign; the page only gives them new styles
+(`assets/site.css`, the Threat Lab section) and the icon sprite they draw from.
 
-Not ported: the full signature feed, native YARA, PE section parsing and archive
-unpacking. Those live in the desktop product.
+Not ported: the full signature feed, native YARA, PE section parsing and archive unpacking.
+Those live in the desktop product. Everything runs client-side: no file, hash or byte leaves
+the browser.
 
-Everything runs client-side. No file, hash or byte leaves the browser, and the
-site sets no cookies and runs no analytics. The only thing it stores is the
-theme, in `localStorage`, and only after a click on the theme switch.
+## Desktop app downloads
+
+`download.html` links directly to
+`github.com/aquaxs1/Guardiantus-AV/releases/latest/download/<asset>`, which always resolves to
+the newest published release. `assets/js/download.js` only picks the visitor's build as the
+primary button. `packaging/check_download_links.py` (run by
+`.github/workflows/download-links.yml`) checks that every asset name on the site is one the
+release workflow builds — run it after touching the download page.
 
 ## Privacy notice
 
-`terms.html#privacy` describes what the site, the downloads and the software
-process. Update it when either one starts sending or storing something new.
-
-## Editing
-
-Plain HTML. The header and footer are repeated per page; keep them in sync when
-you change navigation. Adding a page means adding it to:
-
-1. `NAV_ITEMS` markup in each page header
-2. The footer quick links
-3. `sitemap.xml`
+`terms.html#privacy` describes what the site, the downloads and the software process. Update
+it when either one starts sending or storing something new.

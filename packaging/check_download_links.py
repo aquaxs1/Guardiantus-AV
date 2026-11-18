@@ -19,6 +19,8 @@ only one of them is visible in a diff:
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import sys
 import urllib.error
@@ -114,28 +116,48 @@ def check_offline() -> List[str]:
     return problems
 
 
+def latest_release_assets(repo: str) -> Set[str]:
+    """Names of the files attached to the published latest release.
+
+    Asked of the GitHub API rather than by requesting each
+    ``releases/latest/download/<name>`` URL: GitHub counts every request for
+    an asset URL as a download -- HEAD included, since it follows the redirect
+    to the file -- so the daily run used to add one fake download per asset
+    per day. Listing the release touches no asset and counts nothing.
+    """
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/releases/latest",
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "guardiantus-link-check"},
+    )
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        release = json.load(response)
+    return {asset["name"] for asset in release.get("assets", [])}
+
+
 def check_online(repo: str) -> List[str]:
     """Does every link resolve against the published latest release?"""
+    try:
+        published = latest_release_assets(repo)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return ["No published release yet: every download link is a 404. Cut a release."]
+        return [f"The latest release could not be read (HTTP {exc.code})."]
+    except OSError as exc:
+        return [f"The latest release could not be read ({exc})."]
+
     problems = []
     for name, places in sorted(site_links().items()):
-        url = f"https://github.com/{repo}/releases/latest/download/{name}"
-        request = urllib.request.Request(url, method="HEAD")
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                status = response.status
-        except urllib.error.HTTPError as exc:
-            status = exc.code
-        except OSError as exc:
-            problems.append(f"{name}: could not be checked ({exc})")
-            continue
-        if status >= 400:
-            problems.append(
-                f"{name} -> HTTP {status}. Linked from {', '.join(places)}, but "
-                "no published release carries it. Cut a release, or point the "
-                "site at an asset that exists."
-            )
+        if name in published:
+            print(f"  ok   {name}")
         else:
-            print(f"  ok   {name} -> HTTP {status}")
+            problems.append(
+                f"{name} is linked from {', '.join(places)}, but the latest "
+                "release does not carry it. Cut a release, or point the site "
+                "at an asset that exists."
+            )
     return problems
 
 

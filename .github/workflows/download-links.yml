@@ -44,4 +44,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      # Reads the release through the API instead of requesting the files, so
+      # these checks do not show up in the release download counts.
       - run: python packaging/check_download_links.py --online --repo "${{ github.repository }}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
